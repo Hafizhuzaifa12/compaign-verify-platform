@@ -1,118 +1,91 @@
-import re
+URGENCY_KEYWORDS = [
+    "immediately", "urgent", "suspend", "suspended", "verify now",
+    "act now", "action required", "urgent action", "expire", "expires",
+    "within 24 hours", "within 48 hours", "limited time", "right away",
+    "as soon as possible", "final warning", "last chance",
+    "account will be", "will be closed", "will be suspended",
+    "unauthorized", "unusual activity", "security alert", "security notice",
+]
 
-_URL_RE = re.compile(
-    r'https?://[^\s<>"\']+|www\.[^\s<>"\']+',
-    re.IGNORECASE,
-)
-_EMAIL_RE = re.compile(
-    r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}',
-    re.IGNORECASE,
-)
-_IP_URL_RE = re.compile(r'https?://\d{1,3}(\.\d{1,3}){3}')
+CREDENTIAL_KEYWORDS = [
+    "password", "passwd", "ssn", "social security", "credit card",
+    "bank account", "account number", "routing number", "pin number",
+    "login", "log in", "sign in", "username", "credential",
+    "billing information", "payment information", "card number",
+    "cvv", "expiry date", "date of birth",
+]
 
-SUSPICIOUS_TLDS = frozenset({
-    '.tk', '.ml', '.ga', '.cf', '.gq', '.xyz', '.top',
-    '.click', '.link', '.pw', '.cc', '.buzz', '.rest',
-})
+SUSPICIOUS_TLDS = [
+    ".xyz", ".tk", ".ml", ".ga", ".cf", ".top", ".buzz", ".click",
+    ".gq", ".link", ".work", ".fit", ".review", ".stream",
+    ".download", ".racing", ".win", ".bid", ".loan", ".trade",
+]
 
-URGENCY_KEYWORDS = frozenset({
-    'urgent', 'immediately', 'expire', 'hurry', 'deadline',
-    'last chance', 'act now', 'limited time', 'final warning',
-    'suspended', 'unauthorized', 'security breach',
-    'locked', 'disabled', 'action required',
-})
-
-PHISHING_REGEXES = [
-    re.compile(p, re.IGNORECASE) for p in [
-        r'click\s+here',
-        r'verify\s+your\s+(account|identity|password|email)',
-        r'confirm\s+your\s+(account|identity|password|email)',
-        r'update\s+your\s+(account|payment|billing|information)',
-        r'suspend(ed)?\s+account',
-        r'unusual\s+(activity|sign[\s-]?in|login)',
-        r'reset\s+your\s+password',
-        r'won\s+(a\s+)?(prize|lottery|gift|reward)',
-        r'claim\s+your\s*(prize|reward|gift|bonus)',
-        r'free\s+(gift|money|iphone|prize|offer)',
-        r'wire\s+transfer',
-        r'social\s+security',
-        r'credit\s+card\s+(number|detail|info)',
-        r'bank\s+(account|detail|info)',
-        r'dear\s+(customer|user|member|valued)',
-        r'you\s+have\s+been\s+selected',
-        r'log\s*-?\s*in\s+credential',
-    ]
+PHISHING_DOMAIN_FRAGMENTS = [
+    "secure-", "account-", "login-", "verify-", "update-", "confirm-",
+    "banking-", "paypal-", "apple-", "microsoft-", "google-", "amazon-",
+    "-secure", "-login", "-verify", "-account", "-update", "-confirm",
+    "signin", "logon", "authenticate",
 ]
 
 
-def extract_features(text: str) -> dict:
-    lower = text.lower()
-    urls = _URL_RE.findall(text)
-    url_count = len(urls)
-    has_ip_url = bool(_IP_URL_RE.search(text))
+def compute_rule_score(signals):
+    score = 0.0
+    indicators = []
 
-    suspicious_tld_count = 0
-    for u in urls:
+    text_lower = signals.get("text_lower", "")
+    urls = signals.get("urls", [])
+
+    if signals.get("ip_in_url", False):
+        score += 0.30
+        indicators.append("ip_address_in_url")
+
+    tld_hits = 0
+    for url in urls:
+        url_lower = url.lower()
         for tld in SUSPICIOUS_TLDS:
-            if tld in u.lower():
-                suspicious_tld_count += 1
+            if tld in url_lower:
+                tld_hits += 1
                 break
+    if tld_hits > 0:
+        score += min(tld_hits * 0.15, 0.30)
+        indicators.append(f"suspicious_tld_x{tld_hits}")
 
-    email_count = len(_EMAIL_RE.findall(text))
-    urgency_count = sum(1 for kw in URGENCY_KEYWORDS if kw in lower)
-    phishing_hits = sum(1 for rx in PHISHING_REGEXES if rx.search(lower))
+    frag_hits = 0
+    for url in urls:
+        url_lower = url.lower()
+        for frag in PHISHING_DOMAIN_FRAGMENTS:
+            if frag in url_lower:
+                frag_hits += 1
+                break
+    if frag_hits > 0:
+        score += min(frag_hits * 0.10, 0.20)
+        indicators.append(f"phishing_domain_fragment_x{frag_hits}")
 
-    alpha_count = max(sum(1 for c in text if c.isalpha()), 1)
-    caps_ratio = sum(1 for c in text if c.isupper()) / alpha_count
-    total_len = max(len(text), 1)
-    special_ratio = sum(1 for c in text if not c.isalnum() and not c.isspace()) / total_len
+    urgency_hits = 0
+    for keyword in URGENCY_KEYWORDS:
+        if keyword in text_lower:
+            urgency_hits += 1
+    if urgency_hits > 0:
+        score += min(urgency_hits * 0.05, 0.20)
+        indicators.append(f"urgency_keywords_x{urgency_hits}")
 
-    return {
-        'url_count': url_count,
-        'email_count': email_count,
-        'has_ip_url': has_ip_url,
-        'suspicious_tld_count': suspicious_tld_count,
-        'urgency_count': urgency_count,
-        'phishing_hits': phishing_hits,
-        'caps_ratio': round(caps_ratio, 4),
-        'special_ratio': round(special_ratio, 4),
-        'exclamation_count': text.count('!'),
-        'dollar_count': text.count('$'),
-        'text_length': len(text),
-    }
+    cred_hits = 0
+    for keyword in CREDENTIAL_KEYWORDS:
+        if keyword in text_lower:
+            cred_hits += 1
+    if cred_hits > 0:
+        score += min(cred_hits * 0.10, 0.25)
+        indicators.append(f"credential_keywords_x{cred_hits}")
 
+    if signals.get("url_count", 0) > 3:
+        score += 0.10
+        indicators.append(f"high_url_count_{signals['url_count']}")
 
-def compute_rule_score(features: dict) -> float:
-    s = 0.0
+    if signals.get("email_count", 0) > 0:
+        score += 0.05
+        indicators.append("email_in_body")
 
-    if features['has_ip_url']:
-        s += 0.20
-    if features['suspicious_tld_count'] > 0:
-        s += min(features['suspicious_tld_count'] * 0.12, 0.36)
-    if features['url_count'] > 3:
-        s += 0.12
-    elif features['url_count'] > 0:
-        s += 0.04
+    score = max(0.0, min(1.0, score))
 
-    hits = features['phishing_hits']
-    if hits >= 3:
-        s += 0.30
-    elif hits >= 1:
-        s += min(hits * 0.12, 0.24)
-
-    urg = features['urgency_count']
-    if urg >= 3:
-        s += 0.20
-    elif urg >= 1:
-        s += min(urg * 0.08, 0.16)
-
-    if features['caps_ratio'] > 0.5:
-        s += 0.08
-    if features['exclamation_count'] > 3:
-        s += 0.04
-    if features['dollar_count'] > 2:
-        s += 0.04
-    if features['special_ratio'] > 0.25:
-        s += 0.04
-
-    return min(s, 1.0)
+    return score, indicators

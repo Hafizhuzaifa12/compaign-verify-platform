@@ -1,17 +1,27 @@
 import os
 
+
 class Settings:
-    PROJECT_NAME: str = "AI-Powered Secure Campaign API"
-    BASE_DIR: str = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    MODEL_PATH: str = os.path.join(BASE_DIR, "training", "model.pkl")
-    VECTORIZER_PATH: str = os.path.join(BASE_DIR, "training", "vectorizer.pkl")
+    PROJECT_NAME = "AI-Powered Secure Campaign API"
+    VERSION = "2.0.0"
 
-    ML_WEIGHT: float = float(os.getenv("ML_WEIGHT", "0.60"))
-    RULE_WEIGHT: float = float(os.getenv("RULE_WEIGHT", "0.40"))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    MODEL_PATH = os.environ.get("MODEL_PATH", os.path.join(BASE_DIR, "training", "model.pkl"))
+    VECTORIZER_PATH = os.environ.get("VECTORIZER_PATH", os.path.join(BASE_DIR, "training", "vectorizer.pkl"))
 
-    HIGH_RISK_THRESHOLD: float = float(os.getenv("HIGH_RISK_THRESHOLD", "0.50"))
-    SAFE_THRESHOLD: float = float(os.getenv("SAFE_THRESHOLD", "0.25"))
+    CONFIDENCE_THRESHOLD = float(os.environ.get("CONFIDENCE_THRESHOLD", "0.70"))
+    HIGH_CONFIDENCE_OVERRIDE = float(os.environ.get("HIGH_CONFIDENCE_OVERRIDE", "0.80"))
+    SUSPICIOUS_THRESHOLD = float(os.environ.get("SUSPICIOUS_THRESHOLD", "0.40"))
 
-    MAX_INPUT_LENGTH: int = int(os.getenv("MAX_INPUT_LENGTH", "10000"))
+    ML_WEIGHT = float(os.environ.get("ML_WEIGHT", "0.45"))
+    RULE_WEIGHT = float(os.environ.get("RULE_WEIGHT", "0.55"))
+
+    MAX_BATCH_SIZE = int(os.environ.get("MAX_BATCH_SIZE", "50"))
+    MAX_INPUT_LENGTH = int(os.environ.get("MAX_INPUT_LENGTH", "10000"))
+
+    LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO")
+    CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "*").split(",")
+    API_PORT = int(os.environ.get("API_PORT", "8001"))
+
 
 settings = Settings()

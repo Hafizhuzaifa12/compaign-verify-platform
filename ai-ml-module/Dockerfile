@@ -14,6 +14,8 @@ RUN python -c "import nltk; nltk.download('stopwords', quiet=True)"
 COPY app/ ./app/
 COPY training/ ./training/
 
+RUN python -m training.train
+
 EXPOSE 8001
 
 ENV PYTHONPATH=/app
