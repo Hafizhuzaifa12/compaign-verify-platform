@@ -1,12 +1,23 @@
+import hashlib
+import json
 import logging
+import re
+import subprocess
+import sys
+from pathlib import Path
 
 import requests
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import check_misleading_words, check_suspicious_url
 from app.models.campaign import Campaign
 
 logger = logging.getLogger(__name__)
+
+# backend-core -> repo root: app/services/ -> app/ -> backend-core/ -> repo
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_INTERACT_SCRIPT = _REPO_ROOT / "blockchain-infra" / "scripts" / "interact.py"
 
 
 def _status_from_ai_response(data: dict) -> str:
@@ -27,15 +38,46 @@ def _status_from_ai_response(data: dict) -> str:
     return "Pending"
 
 
+def _parse_tx_from_output(stdout: str) -> str:
+    if not stdout or not stdout.strip():
+        raise ValueError("Empty script output")
+    lines = [line.strip() for line in stdout.strip().splitlines() if line.strip()]
+    line = lines[-1]
+    if re.match(r"^0x[0-9a-fA-F]{64}$", line):
+        return line
+    if re.match(r"^0x[0-9a-fA-F]+$", line) and 10 <= len(line) <= 128:
+        return line
+    raise ValueError(f"Unrecognized transaction hash in output: {line!r}")
+
+
+def _run_blockchain_store(campaign_id: int, content_hash_hex: str) -> str:
+    if not _INTERACT_SCRIPT.is_file():
+        raise FileNotFoundError(f"interact script not found: {_INTERACT_SCRIPT}")
+    result = subprocess.run(
+        [sys.executable, str(_INTERACT_SCRIPT), str(campaign_id), content_hash_hex],
+        capture_output=True,
+        text=True,
+        timeout=120,
+        cwd=str(_REPO_ROOT),
+    )
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "").strip()
+        raise RuntimeError(f"interact.py failed: {err}")
+    return _parse_tx_from_output(result.stdout or "")
+
+
 def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> None:
     """
-    Call the AI module, then persist the derived status for this campaign.
+    1) Call AI module. 2) Run URL + misleading-text checks. 3) If AI Safe and security
+    has no issues, hash content, record on chain, and mark Verified.
     """
     campaign = db.get(Campaign, campaign_id)
     if not campaign:
         logger.warning("Campaign %s not found for analysis", campaign_id)
         return
 
+    # --- AI
+    data: dict = {}
     try:
         response = requests.post(
             settings.ai_predict_url,
@@ -44,12 +86,47 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
         )
         response.raise_for_status()
         data = response.json() if response.content else {}
+        ai_status = _status_from_ai_response(data)
     except requests.RequestException as exc:
         logger.exception("AI request failed for campaign %s: %s", campaign_id, exc)
-        campaign.status = "Analysis Failed"
+        ai_status = "Analysis Failed"
+
+    # --- Custom security (after AI)
+    warnings: list[str] = []
+    url = campaign.url or ""
+    if check_suspicious_url(url):
+        warnings.append(
+            "URL uses a raw IP address, IPv6, or a known link shortener (e.g. bit.ly, tinyurl)"
+        )
+    warnings.extend(check_misleading_words(content))
+
+    if warnings:
+        campaign.status = "Suspicious"
+        campaign.security_warnings = json.dumps(warnings, ensure_ascii=False)
+        # AI outcome still available in logs; user-facing status is the firewall.
         db.commit()
         return
 
-    campaign.status = _status_from_ai_response(data)
+    campaign.security_warnings = None
+
+    if ai_status != "Safe":
+        campaign.status = ai_status
+        db.commit()
+        return
+
+    # --- AI Safe and security heuristics pass: hash + chain
+    content_hash_hex = hashlib.sha256(content.encode("utf-8")).hexdigest()
+    campaign.content_hash_sha256 = content_hash_hex
+
+    try:
+        tx_hash = _run_blockchain_store(campaign_id, content_hash_hex)
+    except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
+        logger.exception("Blockchain step failed for campaign %s: %s", campaign_id, exc)
+        campaign.status = "Blockchain Error"
+        db.commit()
+        return
+
+    campaign.tx_hash = tx_hash
+    campaign.status = "Verified on Blockchain"
     db.commit()
     db.refresh(campaign)
