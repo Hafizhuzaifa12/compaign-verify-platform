@@ -33,6 +33,7 @@ class Settings(BaseModel):
     smtp_username: str = ""
     smtp_password: str = ""
     from_email: str = ""
+    ai_predict_url: str = "http://127.0.0.1:8001/predict"
 
 
 def get_settings() -> Settings:
@@ -54,6 +55,7 @@ def get_settings() -> Settings:
         smtp_username=env.get("SMTP_USERNAME", ""),
         smtp_password=env.get("SMTP_PASSWORD", ""),
         from_email=env.get("FROM_EMAIL", ""),
+        ai_predict_url=env.get("AI_PREDICT_URL", "http://127.0.0.1:8001/predict"),
     )
 
 

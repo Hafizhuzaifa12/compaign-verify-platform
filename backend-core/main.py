@@ -5,7 +5,7 @@ from app.db.base import Base
 from app.db.session import engine
 
 app = FastAPI(title="Campaign Verify Platform API")
-app.include_router(api_router)
+app.include_router(api_router, prefix="/api/v1")
 
 
 @app.on_event("startup")
