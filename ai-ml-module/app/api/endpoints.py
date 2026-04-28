@@ -1,12 +1,14 @@
 import logging
 import time
 import uuid
+from contextlib import asynccontextmanager
+from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, field_validator
-from typing import List
+from typing import List, Optional
 from app.models.predict import get_prediction
-from app.models.load_model import is_model_loaded, reload_model
+from app.models.load_model import is_model_loaded, reload_model, load_trained_artifacts
 from app.core.config import settings
 
 logging.basicConfig(
@@ -15,7 +17,27 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title=settings.PROJECT_NAME, version=settings.VERSION)
+_executor = ThreadPoolExecutor(max_workers=4)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Load model at startup so /health reports correctly from the start."""
+    logger.info("Loading model at startup ...")
+    load_trained_artifacts()
+    if is_model_loaded():
+        logger.info("Model ready")
+    else:
+        logger.warning("Model not available — running in rule-only fallback mode")
+    yield
+    _executor.shutdown(wait=False)
+
+
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version=settings.VERSION,
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -27,6 +49,8 @@ app.add_middleware(
 
 START_TIME = time.time()
 
+
+# ── Request / response schemas ───────────────────────────────────────
 
 class CampaignRequest(BaseModel):
     text: str
@@ -59,11 +83,10 @@ class BatchRequest(BaseModel):
         return v
 
 
-def _build_response(result):
+def _build_response(result) -> dict:
     return {
         "label": result.label,
         "confidence": result.confidence,
-        "risk_level": result.label,
         "final_score": result.final_score,
         "ml_phishing_score": result.ml_phishing_score,
         "rule_score": result.rule_score,
@@ -71,6 +94,8 @@ def _build_response(result):
         "model_active": not result.is_fallback,
     }
 
+
+# ── Endpoints ────────────────────────────────────────────────────────
 
 @app.get("/health")
 async def health():
@@ -101,7 +126,10 @@ async def predict_batch(request: BatchRequest):
     request_id = str(uuid.uuid4())
     logger.info("[%s] Batch: %d texts", request_id, len(request.texts))
 
-    results = [_build_response(get_prediction(text)) for text in request.texts]
+    results = list(_executor.map(
+        lambda t: _build_response(get_prediction(t)),
+        request.texts,
+    ))
 
     return {
         "request_id": request_id,

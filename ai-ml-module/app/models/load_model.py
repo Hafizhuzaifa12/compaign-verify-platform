@@ -13,6 +13,7 @@ _loaded = False
 
 
 def _validate_model(model, vectorizer):
+    """Verify model and vectorizer have the required sklearn interface."""
     if not hasattr(model, 'predict'):
         raise ValueError("Model missing predict method")
     if not hasattr(model, 'predict_proba'):
@@ -24,8 +25,12 @@ def _validate_model(model, vectorizer):
 
 
 def load_trained_artifacts():
+    """Thread-safe loading of model + vectorizer from disk."""
     global _model, _vectorizer, _loaded
     with _lock:
+        if _loaded:
+            return _model, _vectorizer
+
         if not os.path.exists(settings.MODEL_PATH):
             logger.warning("Model file not found: %s", settings.MODEL_PATH)
             _model, _vectorizer, _loaded = None, None, False
@@ -57,16 +62,19 @@ def load_trained_artifacts():
 
 
 def get_model():
-    if not _loaded:
-        load_trained_artifacts()
-    return _model, _vectorizer
-
-
-def reload_model():
-    global _loaded
-    _loaded = False
+    """Return (model, vectorizer), loading on first call if needed."""
+    if _loaded:
+        return _model, _vectorizer
     return load_trained_artifacts()
 
 
-def is_model_loaded():
+def reload_model():
+    """Force re-read of model artifacts from disk (thread-safe)."""
+    global _model, _vectorizer, _loaded
+    with _lock:
+        _model, _vectorizer, _loaded = None, None, False
+    return load_trained_artifacts()
+
+
+def is_model_loaded() -> bool:
     return _loaded

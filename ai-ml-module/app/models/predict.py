@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass, field
-from app.models.load_model import get_model, is_model_loaded
+from app.models.load_model import get_model
 from app.core.tokenizer import clean_text_for_vectorizer, extract_raw_signals
 from app.core.features import compute_rule_score
 from app.core.config import settings
@@ -19,12 +19,16 @@ class PredictionResult:
     is_fallback: bool = False
 
 
-def _get_ml_phishing_score(model, vectorizer, text):
+def _get_ml_phishing_score(model, vectorizer, text: str):
+    """Run ML inference and return the phishing-class probability."""
     try:
         cleaned = clean_text_for_vectorizer(text)
+        if not cleaned.strip():
+            logger.warning("Cleaned text is empty — skipping ML prediction")
+            return None
         vectorized = vectorizer.transform([cleaned])
         probabilities = model.predict_proba(vectorized)[0]
-        classes = model.classes_.tolist()
+        classes = list(model.classes_)
         if "Phishing" in classes:
             phishing_idx = classes.index("Phishing")
         else:
@@ -37,6 +41,7 @@ def _get_ml_phishing_score(model, vectorizer, text):
 
 
 def _merge_scores(ml_score, rule_score):
+    """Blend ML and rule scores using configured weights."""
     if ml_score is None:
         return rule_score
 
@@ -46,7 +51,7 @@ def _merge_scores(ml_score, rule_score):
     return settings.ML_WEIGHT * ml_score + settings.RULE_WEIGHT * rule_score
 
 
-def _score_to_label(score):
+def _score_to_label(score: float) -> str:
     if score >= settings.CONFIDENCE_THRESHOLD:
         return "High Risk"
     if score >= settings.SUSPICIOUS_THRESHOLD:
@@ -54,7 +59,8 @@ def _score_to_label(score):
     return "Safe"
 
 
-def get_prediction(text):
+def get_prediction(text: str) -> PredictionResult:
+    """Run the full hybrid prediction pipeline on raw text."""
     signals = extract_raw_signals(text)
     rule_score, indicators = compute_rule_score(signals)
 
@@ -74,7 +80,7 @@ def get_prediction(text):
         label=label,
         confidence=round(final_score, 4),
         final_score=round(final_score, 4),
-        ml_phishing_score=round(ml_phishing_score, 4) if ml_phishing_score is not None else -1.0,
+        ml_phishing_score=round(ml_phishing_score, 4) if ml_phishing_score is not None else None,
         rule_score=round(rule_score, 4),
         indicators=indicators,
         is_fallback=is_fallback,

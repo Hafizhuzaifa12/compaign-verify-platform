@@ -13,6 +13,7 @@ RUN python -c "import nltk; nltk.download('stopwords', quiet=True)"
 
 COPY app/ ./app/
 COPY training/ ./training/
+COPY Phishing_Email.csv .
 
 RUN python -m training.train
 
