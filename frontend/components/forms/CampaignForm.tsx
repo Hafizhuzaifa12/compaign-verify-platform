@@ -1,63 +1,128 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { getAccessToken } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import apiClient from "@/lib/api-client";
+import apiClient, { apiErrorMessage } from "@/lib/api-client";
+
+const TYPES = [
+  { value: "", label: "Select type" },
+  { value: "Email Marketing", label: "Email marketing" },
+  { value: "Social Media Ad", label: "Social media ad" },
+  { value: "Landing Page Copy", label: "Landing page copy" },
+] as const;
 
 export default function CampaignForm() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
-
   const [formData, setFormData] = useState({
     title: "",
     type: "",
     content: "",
     url: "",
   });
+  const [error, setError] = useState("");
 
-  const handleChange = (e: any) => {
+  useEffect(() => {
+    if (!getAccessToken()) {
+      router.replace("/auth/login");
+    }
+  }, [router]);
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
+  ) => {
+    setError("");
     setFormData({
       ...formData,
       [e.target.name]: e.target.value,
     });
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    if (!formData.title.trim() || !formData.type || !formData.content.trim()) {
+      setError("Title, type, and content are required.");
+      return;
+    }
+    setLoading(true);
     try {
-      setLoading(true);
-
-      await apiClient.post("/campaigns", formData);
-
-      alert("Submitted!");
-      window.location.href = "/dashboard";
-
+      await apiClient.post("/campaigns", {
+        title: formData.title.trim(),
+        type: formData.type,
+        content: formData.content.trim(),
+        url: formData.url.trim() || "",
+      });
+      router.push("/dashboard");
+      router.refresh();
     } catch (err) {
-      alert("Error");
+      setError(apiErrorMessage(err, "Could not submit the campaign."));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded shadow w-full max-w-xl">
-      <h2 className="text-xl font-bold mb-4">Submit Campaign</h2>
+    <form
+      onSubmit={handleSubmit}
+      className="bg-white p-6 rounded shadow w-full max-w-xl border"
+    >
+      <h2 className="text-xl font-bold text-[#0F172A] mb-4">Submit campaign</h2>
 
-      <Input name="title" placeholder="Title" onChange={handleChange} className="mb-3" />
+      {error ? (
+        <p className="text-sm text-red-600 mb-3" role="alert">
+          {error}
+        </p>
+      ) : null}
 
-      <select name="type" onChange={handleChange} className="w-full border p-2 mb-3">
-        <option>Select Type</option>
-        <option>Email Marketing</option>
-        <option>Social Media Ad</option>
-        <option>Landing Page Copy</option>
+      <Input
+        name="title"
+        placeholder="Title"
+        className="mb-3"
+        value={formData.title}
+        onChange={handleChange}
+      />
+
+      <select
+        name="type"
+        value={formData.type}
+        onChange={handleChange}
+        className="w-full border border-[#E2E8F0] rounded-md p-2 mb-3 bg-white"
+      >
+        {TYPES.map((t) => (
+          <option key={t.value || "empty"} value={t.value}>
+            {t.label}
+          </option>
+        ))}
       </select>
 
-      <textarea name="content" placeholder="Content" onChange={handleChange} className="w-full border p-2 mb-3" />
+      <textarea
+        name="content"
+        placeholder="Content to verify"
+        onChange={handleChange}
+        value={formData.content}
+        className="w-full border border-[#E2E8F0] rounded-md p-2 mb-3 min-h-[120px]"
+      />
 
-      <Input name="url" placeholder="Landing Page URL" onChange={handleChange} className="mb-3" />
+      <Input
+        name="url"
+        type="url"
+        placeholder="Optional landing page URL"
+        className="mb-3"
+        value={formData.url}
+        onChange={handleChange}
+      />
 
-      <Button onClick={handleSubmit} className="w-full bg-blue-600 text-white">
-        {loading ? "Submitting..." : "Submit"}
+      <Button
+        type="submit"
+        disabled={loading}
+        className="w-full bg-blue-600 text-white hover:bg-blue-700"
+      >
+        {loading ? "Submitting…" : "Submit"}
       </Button>
-    </div>
+    </form>
   );
 }

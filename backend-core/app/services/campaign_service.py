@@ -50,6 +50,35 @@ def _parse_tx_from_output(stdout: str) -> str:
     raise ValueError(f"Unrecognized transaction hash in output: {line!r}")
 
 
+def _link_count(text: str) -> int:
+    if not text:
+        return 0
+    http_links = re.findall(r"https?://[^\s<>\"']+", text, re.IGNORECASE)
+    www_links = re.findall(r"(?<![/.])www\.[^\s<>\"']+", text, re.IGNORECASE)
+    return len(http_links) + len(www_links)
+
+
+def _word_count(text: str) -> int:
+    if not text or not str(text).strip():
+        return 0
+    return len(re.findall(r"\b\w+\b", str(text)))
+
+
+def _set_marketing_tips(campaign: Campaign, content: str) -> None:
+    """
+    Digital marketing heuristics; stored as JSON array on the campaign.
+    """
+    tips: list[str] = []
+    ct = (campaign.campaign_type or "").lower()
+    if "email" in ct and _link_count(content) > 3:
+        tips.append("Emails with too many links look spammy. Keep it under 2.")
+    if "social" in ct and _word_count(content) > 200:
+        tips.append("Social media captions should be concise.")
+    campaign.marketing_tips = (
+        json.dumps(tips, ensure_ascii=False) if tips else None
+    )
+
+
 def _run_blockchain_store(campaign_id: int, content_hash_hex: str) -> str:
     if not _INTERACT_SCRIPT.is_file():
         raise FileNotFoundError(f"interact script not found: {_INTERACT_SCRIPT}")
@@ -103,6 +132,7 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
     if warnings:
         campaign.status = "Suspicious"
         campaign.security_warnings = json.dumps(warnings, ensure_ascii=False)
+        _set_marketing_tips(campaign, content)
         # AI outcome still available in logs; user-facing status is the firewall.
         db.commit()
         return
@@ -111,6 +141,7 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
 
     if ai_status != "Safe":
         campaign.status = ai_status
+        _set_marketing_tips(campaign, content)
         db.commit()
         return
 
@@ -123,10 +154,12 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
     except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
         logger.exception("Blockchain step failed for campaign %s: %s", campaign_id, exc)
         campaign.status = "Blockchain Error"
+        _set_marketing_tips(campaign, content)
         db.commit()
         return
 
     campaign.tx_hash = tx_hash
     campaign.status = "Verified on Blockchain"
+    _set_marketing_tips(campaign, content)
     db.commit()
     db.refresh(campaign)

@@ -16,3 +16,4 @@ class Campaign(Base):
     security_warnings = Column(Text, nullable=True)  # JSON list of strings
     tx_hash = Column(String, nullable=True)
     content_hash_sha256 = Column(String(64), nullable=True)  # hex digest, optional for audit
+    marketing_tips = Column(Text, nullable=True)  # JSON array of strings

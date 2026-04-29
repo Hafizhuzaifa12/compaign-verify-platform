@@ -45,11 +45,8 @@ class ResetPasswordRequest(BaseModel):
 def _validate_password_strength(password: str) -> None:
     if not _password_regex.match(password):
         raise HTTPException(
-            status_code=422,
-            detail=(
-                "Password must be at least 8 characters long and include "
-                "at least one number and one special character."
-            ),
+            status_code=400,
+            detail="Password must be strong (8+ chars, 1 number, 1 special char)",
         )
 
 
