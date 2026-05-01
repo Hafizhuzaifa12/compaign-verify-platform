@@ -2,26 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { getAccessToken } from "@/lib/api-client";
+import toast from "react-hot-toast";
+import apiClient, { apiErrorMessage, getAccessToken } from "@/lib/api-client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import apiClient, { apiErrorMessage } from "@/lib/api-client";
 
 const TYPES = [
   { value: "", label: "Select type" },
   { value: "Email Marketing", label: "Email marketing" },
   { value: "Social Media Ad", label: "Social media ad" },
-  { value: "Landing Page Copy", label: "Landing page copy" },
+  { value: "Product Ad Copy", label: "Product ad copy" },
+  { value: "Landing Page Campaign", label: "Landing page campaign" },
 ] as const;
 
 export default function CampaignForm() {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     type: "",
-    content: "",
-    url: "",
+    adCopy: "",
+    emailText: "",
+    socialCaption: "",
+    landingPageContent: "",
+    campaignUrl: "",
   });
   const [error, setError] = useState("");
 
@@ -44,85 +48,171 @@ export default function CampaignForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    if (!formData.title.trim() || !formData.type || !formData.content.trim()) {
-      setError("Title, type, and content are required.");
+    const parts = [
+      ["Ad copy", formData.adCopy],
+      ["Email marketing text", formData.emailText],
+      ["Social media caption", formData.socialCaption],
+      ["Landing page content", formData.landingPageContent],
+    ] as const;
+    const normalized = parts
+      .filter(([, value]) => value.trim().length > 0)
+      .map(([label, value]) => `${label}:\n${value.trim()}`)
+      .join("\n\n");
+    if (!formData.title.trim() || !formData.type || !normalized) {
+      setError("Title, campaign type, and at least one content field are required.");
       return;
     }
-    setLoading(true);
+    setIsSubmitting(true);
     try {
       await apiClient.post("/campaigns", {
         title: formData.title.trim(),
         type: formData.type,
-        content: formData.content.trim(),
-        url: formData.url.trim() || "",
+        content: normalized,
+        url: formData.campaignUrl.trim() || "",
       });
+      toast.success("Campaign submitted successfully");
       router.push("/dashboard");
       router.refresh();
     } catch (err) {
-      setError(apiErrorMessage(err, "Could not submit the campaign."));
+      const msg = apiErrorMessage(err, "Could not submit the campaign.");
+      setError(msg);
+      toast.error(msg);
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  return (
-    <form
-      onSubmit={handleSubmit}
-      className="bg-white p-6 rounded shadow w-full max-w-xl border"
-    >
-      <h2 className="text-xl font-bold text-[#0F172A] mb-4">Submit campaign</h2>
+  const labelCls = "mb-2 block text-sm font-medium text-[#334155]";
+  const fieldCls = "mb-6 w-full rounded-lg border border-[#E2E8F0] bg-white";
 
+  return (
+    <form onSubmit={handleSubmit} className="w-full">
       {error ? (
-        <p className="text-sm text-red-600 mb-3" role="alert">
+        <p className="mb-6 text-sm text-red-600" role="alert">
           {error}
         </p>
       ) : null}
 
-      <Input
-        name="title"
-        placeholder="Title"
-        className="mb-3"
-        value={formData.title}
-        onChange={handleChange}
-      />
+      <section className="mb-8">
+        <h2
+          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          style={{ fontFamily: "var(--font-sora), sans-serif" }}
+        >
+          Basics
+        </h2>
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Campaign title
+        </label>
+        <Input
+          name="title"
+          placeholder="Campaign title"
+          className="mb-6 rounded-lg"
+          value={formData.title}
+          onChange={handleChange}
+        />
 
-      <select
-        name="type"
-        value={formData.type}
-        onChange={handleChange}
-        className="w-full border border-[#E2E8F0] rounded-md p-2 mb-3 bg-white"
-      >
-        {TYPES.map((t) => (
-          <option key={t.value || "empty"} value={t.value}>
-            {t.label}
-          </option>
-        ))}
-      </select>
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Campaign type
+        </label>
+        <select
+          name="type"
+          value={formData.type}
+          onChange={handleChange}
+          className="mb-6 w-full rounded-lg border border-[#E2E8F0] bg-white p-2"
+        >
+          {TYPES.map((t) => (
+            <option key={t.value || "empty"} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </select>
+      </section>
 
-      <textarea
-        name="content"
-        placeholder="Content to verify"
-        onChange={handleChange}
-        value={formData.content}
-        className="w-full border border-[#E2E8F0] rounded-md p-2 mb-3 min-h-[120px]"
-      />
+      <div className="my-8 border-t border-[#E2E8F0]" />
 
-      <Input
-        name="url"
-        type="url"
-        placeholder="Optional landing page URL"
-        className="mb-3"
-        value={formData.url}
-        onChange={handleChange}
-      />
+      <section className="mb-8">
+        <h2
+          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          style={{ fontFamily: "var(--font-sora), sans-serif" }}
+        >
+          Content
+        </h2>
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Product ad copy
+        </label>
+        <textarea
+          name="adCopy"
+          placeholder="Product ad copy (optional if other fields are provided)"
+          onChange={handleChange}
+          value={formData.adCopy}
+          className={`${fieldCls} min-h-[90px] p-2`}
+        />
 
-      <Button
-        type="submit"
-        disabled={loading}
-        className="w-full bg-blue-600 text-white hover:bg-blue-700"
-      >
-        {loading ? "Submitting…" : "Submit"}
-      </Button>
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Email marketing text
+        </label>
+        <textarea
+          name="emailText"
+          placeholder="Email marketing text"
+          onChange={handleChange}
+          value={formData.emailText}
+          className={`${fieldCls} min-h-[90px] p-2`}
+        />
+
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Social media caption
+        </label>
+        <textarea
+          name="socialCaption"
+          placeholder="Social media caption"
+          onChange={handleChange}
+          value={formData.socialCaption}
+          className={`${fieldCls} min-h-[90px] p-2`}
+        />
+
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Landing page message/content
+        </label>
+        <textarea
+          name="landingPageContent"
+          placeholder="Landing page message/content"
+          onChange={handleChange}
+          value={formData.landingPageContent}
+          className={`${fieldCls} min-h-[90px] p-2`}
+        />
+      </section>
+
+      <div className="my-8 border-t border-[#E2E8F0]" />
+
+      <section>
+        <h2
+          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          style={{ fontFamily: "var(--font-sora), sans-serif" }}
+        >
+          Link & submit
+        </h2>
+        <label className={labelCls} style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          Campaign / landing page URL (optional)
+        </label>
+        <Input
+          name="campaignUrl"
+          type="url"
+          placeholder="Campaign / landing page URL (optional)"
+          className="mb-6 rounded-lg"
+          value={formData.campaignUrl}
+          onChange={handleChange}
+        />
+
+        <Button
+          type="submit"
+          disabled={isSubmitting}
+          className="w-full cursor-pointer rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+        >
+          {isSubmitting
+            ? "Submitting and analyzing with AI and blockchain…"
+            : "Submit campaign"}
+        </Button>
+      </section>
     </form>
   );
 }

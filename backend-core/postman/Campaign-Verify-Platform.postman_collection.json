@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Campaign Verify Platform — API",
-    "description": "Auth + Campaigns (GET/POST). Set `accessToken` in the Local environment after login.",
+    "description": "Auth, Users (profile + uploads), Campaigns. Set `accessToken` after login.\n\nManual checks: (1) Register with full_name + optional phone/display_name/bio. (2) POST avatar multipart with Bearer. (3) GET /users/me returns avatar_url under /uploads/...",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [
@@ -18,10 +18,10 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Strong@123\"\n}"
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"Strong@123\",\n  \"full_name\": \"Example User\",\n  \"phone\": \"+1 555 0100\",\n  \"display_name\": \"example_user\",\n  \"bio\": \"Optional short bio\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/register",
-            "description": "Weak password returns 400 with the exact message from the API."
+            "description": "full_name is required. Weak password returns 400."
           }
         },
         {
@@ -80,6 +80,68 @@
               "raw": "{\n  \"email\": \"user@example.com\",\n  \"otp\": \"123456\",\n  \"new_password\": \"NewStrong@123\"\n}"
             },
             "url": "{{baseUrl}}/api/v1/auth/forgot-password/reset"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "GET me",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "PATCH me",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Updated Name\",\n  \"phone\": \"+1 555 0199\",\n  \"display_name\": null,\n  \"bio\": \"Updated bio\"\n}"
+            },
+            "url": "{{baseUrl}}/api/v1/users/me"
+          }
+        },
+        {
+          "name": "POST me avatar (multipart)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": ""
+                }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/users/me/avatar",
+            "description": "Attach an image file (JPEG/PNG/WebP/GIF). Max size from MAX_UPLOAD_BYTES (default 10MB)."
+          }
+        },
+        {
+          "name": "POST me media (banner / gallery)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "kind", "value": "gallery", "type": "text" },
+                { "key": "file", "type": "file", "src": "" }
+              ]
+            },
+            "url": "{{baseUrl}}/api/v1/users/me/media"
           }
         }
       ]

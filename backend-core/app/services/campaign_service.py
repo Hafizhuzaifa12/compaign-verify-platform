@@ -2,9 +2,6 @@ import hashlib
 import json
 import logging
 import re
-import subprocess
-import sys
-from pathlib import Path
 
 import requests
 from sqlalchemy.orm import Session
@@ -15,39 +12,30 @@ from app.models.campaign import Campaign
 
 logger = logging.getLogger(__name__)
 
-# backend-core -> repo root: app/services/ -> app/ -> backend-core/ -> repo
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-_INTERACT_SCRIPT = _REPO_ROOT / "blockchain-infra" / "scripts" / "interact.py"
-
 
 def _status_from_ai_response(data: dict) -> str:
-    """Map AI /predict JSON to a campaign status string."""
-    if data.get("error"):
+    """Map AI /predict response to a campaign status."""
+    if data.get("error") is True:
         return "Analysis Failed"
-    label = (data.get("label") or "").strip()
-    original = (data.get("original_prediction") or "").strip()
-
-    if original == "Phishing" or label == "High Risk" or label == "Phishing":
+    label = str(data.get("label") or "").strip()
+    if label == "High Risk":
         return "High Risk"
-    if label == "Safe" and original == "Safe":
-        return "Safe"
     if label == "Safe":
         return "Safe"
     if label == "Suspicious":
         return "Suspicious"
+    if label:
+        return label
     return "Pending"
 
 
-def _parse_tx_from_output(stdout: str) -> str:
-    if not stdout or not stdout.strip():
-        raise ValueError("Empty script output")
-    lines = [line.strip() for line in stdout.strip().splitlines() if line.strip()]
-    line = lines[-1]
-    if re.match(r"^0x[0-9a-fA-F]{64}$", line):
-        return line
-    if re.match(r"^0x[0-9a-fA-F]+$", line) and 10 <= len(line) <= 128:
-        return line
-    raise ValueError(f"Unrecognized transaction hash in output: {line!r}")
+def _safe_float(value: object, fallback: float = 0.0) -> float:
+    try:
+        if value is None:
+            return fallback
+        return float(value)
+    except (TypeError, ValueError):
+        return fallback
 
 
 def _link_count(text: str) -> int:
@@ -79,20 +67,69 @@ def _set_marketing_tips(campaign: Campaign, content: str) -> None:
     )
 
 
-def _run_blockchain_store(campaign_id: int, content_hash_hex: str) -> str:
-    if not _INTERACT_SCRIPT.is_file():
-        raise FileNotFoundError(f"interact script not found: {_INTERACT_SCRIPT}")
-    result = subprocess.run(
-        [sys.executable, str(_INTERACT_SCRIPT), str(campaign_id), content_hash_hex],
-        capture_output=True,
-        text=True,
-        timeout=120,
-        cwd=str(_REPO_ROOT),
+def _post_json_with_retries(url: str, payload: dict) -> dict:
+    last_error: Exception | None = None
+    for attempt in range(settings.service_retry_count + 1):
+        try:
+            response = requests.post(
+                url,
+                json=payload,
+                timeout=settings.service_timeout_seconds,
+            )
+            response.raise_for_status()
+            return response.json() if response.content else {}
+        except requests.RequestException as exc:
+            last_error = exc
+            logger.warning(
+                "Service call failed (%s/%s) url=%s err=%s",
+                attempt + 1,
+                settings.service_retry_count + 1,
+                url,
+                exc,
+            )
+    raise RuntimeError(f"Failed service call for {url}: {last_error}") from last_error
+
+
+def _run_blockchain_store(campaign_id: int, content_hash_hex: str) -> dict:
+    base = settings.blockchain_service_url.rstrip("/")
+    return _post_json_with_retries(
+        f"{base}/records/store",
+        {"campaign_id": campaign_id, "content_hash": content_hash_hex},
     )
-    if result.returncode != 0:
-        err = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(f"interact.py failed: {err}")
-    return _parse_tx_from_output(result.stdout or "")
+
+
+def verify_campaign_integrity(campaign: Campaign) -> dict:
+    if not campaign.content_hash_sha256:
+        return {
+            "content_hash_match": False,
+            "blockchain_hash_match": False,
+            "verification_state": "not_hashed",
+        }
+
+    current_hash = hashlib.sha256(campaign.content.encode("utf-8")).hexdigest()
+    content_hash_match = current_hash.lower() == campaign.content_hash_sha256.lower()
+    blockchain_hash_match = False
+    verification_state = "content_hash_only"
+
+    if campaign.tx_hash:
+        try:
+            base = settings.blockchain_service_url.rstrip("/")
+            data = _post_json_with_retries(
+                f"{base}/records/verify",
+                {"campaign_id": campaign.id, "content_hash": current_hash},
+            )
+            blockchain_hash_match = bool(data.get("is_match"))
+            verification_state = "verified" if blockchain_hash_match else "mismatch"
+        except RuntimeError as exc:
+            logger.warning("Blockchain verify failed for campaign %s: %s", campaign.id, exc)
+            verification_state = "blockchain_unreachable"
+
+    return {
+        "content_hash_match": content_hash_match,
+        "blockchain_hash_match": blockchain_hash_match,
+        "verification_state": verification_state,
+        "current_hash_sha256": current_hash,
+    }
 
 
 def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> None:
@@ -108,17 +145,20 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
     # --- AI
     data: dict = {}
     try:
-        response = requests.post(
-            settings.ai_predict_url,
-            json={"text": content},
-            timeout=120,
-        )
-        response.raise_for_status()
-        data = response.json() if response.content else {}
+        data = _post_json_with_retries(settings.ai_predict_url, {"text": content})
         ai_status = _status_from_ai_response(data)
-    except requests.RequestException as exc:
+    except RuntimeError as exc:
         logger.exception("AI request failed for campaign %s: %s", campaign_id, exc)
         ai_status = "Analysis Failed"
+        data = {"label": "Unavailable", "confidence": 0.0, "final_score": 1.0}
+
+    risk_score = _safe_float(data.get("final_score"), 0.0)
+    ai_confidence = _safe_float(data.get("confidence"), risk_score)
+    trust_score = max(0.0, min(1.0, 1.0 - risk_score))
+    campaign.ai_label = str(data.get("label") or ai_status)
+    campaign.ai_confidence = round(ai_confidence, 4)
+    campaign.risk_score = round(risk_score, 4)
+    campaign.trust_score = round(trust_score, 4)
 
     # --- Custom security (after AI)
     warnings: list[str] = []
@@ -132,6 +172,8 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
     if warnings:
         campaign.status = "Suspicious"
         campaign.security_warnings = json.dumps(warnings, ensure_ascii=False)
+        campaign.risk_score = max(campaign.risk_score or 0.0, 0.65)
+        campaign.trust_score = round(1.0 - (campaign.risk_score or 0.65), 4)
         _set_marketing_tips(campaign, content)
         # AI outcome still available in logs; user-facing status is the firewall.
         db.commit()
@@ -141,6 +183,9 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
 
     if ai_status != "Safe":
         campaign.status = ai_status
+        if ai_status == "High Risk":
+            campaign.risk_score = max(campaign.risk_score or 0.0, 0.85)
+            campaign.trust_score = round(1.0 - (campaign.risk_score or 0.85), 4)
         _set_marketing_tips(campaign, content)
         db.commit()
         return
@@ -150,8 +195,11 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
     campaign.content_hash_sha256 = content_hash_hex
 
     try:
-        tx_hash = _run_blockchain_store(campaign_id, content_hash_hex)
-    except (FileNotFoundError, OSError, RuntimeError, ValueError) as exc:
+        blockchain_data = _run_blockchain_store(campaign_id, content_hash_hex)
+        tx_hash = str(blockchain_data.get("tx_hash") or "")
+        if not tx_hash:
+            raise ValueError("Blockchain service did not return tx_hash")
+    except (RuntimeError, ValueError) as exc:
         logger.exception("Blockchain step failed for campaign %s: %s", campaign_id, exc)
         campaign.status = "Blockchain Error"
         _set_marketing_tips(campaign, content)
@@ -159,6 +207,7 @@ def analyze_campaign_content(db: Session, campaign_id: int, content: str) -> Non
         return
 
     campaign.tx_hash = tx_hash
+    campaign.blockchain_network = str(blockchain_data.get("network") or "unknown")
     campaign.status = "Verified on Blockchain"
     _set_marketing_tips(campaign, content)
     db.commit()

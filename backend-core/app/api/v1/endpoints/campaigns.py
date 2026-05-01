@@ -2,7 +2,7 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user_id
@@ -31,6 +31,11 @@ def _campaign_to_dict(c: Campaign) -> dict[str, Any]:
         "url": c.url or "",
         "status": c.status,
         "marketing_tips": tips,
+        "ai_label": c.ai_label,
+        "ai_confidence": c.ai_confidence,
+        "risk_score": c.risk_score,
+        "trust_score": c.trust_score,
+        "blockchain_network": c.blockchain_network,
     }
     if c.security_warnings:
         try:
@@ -55,10 +60,10 @@ def _run_analysis_job(campaign_id: int, content: str) -> None:
 class CampaignCreate(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True)
 
-    title: str
-    type: str
-    content: str
-    url: str = ""
+    title: str = Field(min_length=3, max_length=160)
+    type: str = Field(min_length=3, max_length=80)
+    content: str = Field(min_length=5, max_length=50000)
+    url: str = Field(default="", max_length=500)
 
     @field_validator("type", "title", "content", mode="after")
     @classmethod
@@ -98,6 +103,11 @@ def create_campaign(
         "url": campaign.url or "",
         "status": campaign.status,
         "marketing_tips": [],
+        "ai_label": campaign.ai_label,
+        "ai_confidence": campaign.ai_confidence,
+        "risk_score": campaign.risk_score,
+        "trust_score": campaign.trust_score,
+        "blockchain_network": campaign.blockchain_network,
     }
 
 
@@ -132,3 +142,22 @@ def get_campaign(
     if not c:
         raise HTTPException(status_code=404, detail="Campaign not found")
     return _campaign_to_dict(c)
+
+
+@router.post("/{campaign_id}/verify-integrity", response_model=dict)
+def verify_integrity(
+    campaign_id: int,
+    db: Session = Depends(get_db),
+    current_user_id: int = Depends(get_current_user_id),
+) -> dict[str, Any]:
+    c = (
+        db.query(Campaign)
+        .filter(
+            Campaign.id == campaign_id,
+            Campaign.user_id == current_user_id,
+        )
+        .first()
+    )
+    if not c:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    return campaign_service.verify_campaign_integrity(c)

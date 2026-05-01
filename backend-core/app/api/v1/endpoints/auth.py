@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -15,17 +15,41 @@ from app.models.user import User
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 _password_regex = re.compile(r"^(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$")
+_phone_re = re.compile(r"^\+?[0-9][0-9\s\-]{5,38}$")
 _otp_store: dict[str, dict[str, datetime | str]] = {}
 
 
 class RegisterRequest(BaseModel):
-    email: str
-    password: str
+    model_config = ConfigDict(str_strip_whitespace=True)
+
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
+    full_name: str = Field(min_length=1, max_length=200)
+    phone: str | None = Field(default=None, max_length=40)
+    display_name: str | None = Field(default=None, max_length=80)
+    bio: str | None = Field(default=None, max_length=500)
+
+    @field_validator("phone")
+    @classmethod
+    def validate_phone(cls, v: str | None) -> str | None:
+        if v is None or v == "":
+            return None
+        compact = re.sub(r"[\s\-]", "", v)
+        if not _phone_re.match(v) or len(compact) < 7:
+            raise ValueError("Invalid phone number")
+        return v
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, v: str | None) -> str | None:
+        if v is None or not str(v).strip():
+            return None
+        return str(v).strip()
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: EmailStr
+    password: str = Field(min_length=8, max_length=128)
 
 
 class RefreshTokenRequest(BaseModel):
@@ -33,13 +57,13 @@ class RefreshTokenRequest(BaseModel):
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
 
 
 class ResetPasswordRequest(BaseModel):
-    email: str
+    email: EmailStr
     otp: str
-    new_password: str
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 def _validate_password_strength(password: str) -> None:
@@ -61,11 +85,25 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)) -> dict[st
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
 
+    if payload.display_name:
+        taken = db.query(User).filter(User.display_name == payload.display_name).first()
+        if taken:
+            raise HTTPException(status_code=400, detail="Display name already taken")
+
     hashed_password = bcrypt.hashpw(
         payload.password.encode("utf-8"), bcrypt.gensalt()
     ).decode("utf-8")
 
-    user = User(email=payload.email, hashed_password=hashed_password, is_active=True)
+    bio_val = (payload.bio or "").strip() or None
+    user = User(
+        email=payload.email,
+        hashed_password=hashed_password,
+        is_active=True,
+        full_name=payload.full_name.strip(),
+        phone=payload.phone,
+        display_name=payload.display_name,
+        bio=bio_val,
+    )
     db.add(user)
     db.commit()
     db.refresh(user)

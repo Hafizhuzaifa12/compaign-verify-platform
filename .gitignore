@@ -1,5 +1,6 @@
 # Virtual environment
 venv/
+.venv/
 __pycache__/
 *.pyc
 *.pyo
@@ -15,3 +16,6 @@ build/
 # IDE
 .vscode/
 .idea/
+
+# Local uploads (avatars / gallery)
+backend-core/uploads/

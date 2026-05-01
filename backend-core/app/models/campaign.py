@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Text
 
 from app.db.base import Base
 
@@ -17,3 +17,8 @@ class Campaign(Base):
     tx_hash = Column(String, nullable=True)
     content_hash_sha256 = Column(String(64), nullable=True)  # hex digest, optional for audit
     marketing_tips = Column(Text, nullable=True)  # JSON array of strings
+    ai_label = Column(String, nullable=True)
+    ai_confidence = Column(Float, nullable=True)
+    risk_score = Column(Float, nullable=True)
+    trust_score = Column(Float, nullable=True)
+    blockchain_network = Column(String, nullable=True)

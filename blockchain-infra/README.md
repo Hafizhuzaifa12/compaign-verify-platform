@@ -1,13 +1,15 @@
-# Sample Hardhat Project
+# Blockchain Infra
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
+This module contains:
 
-Try running some of the following tasks:
+- Solidity contracts for campaign verification (`contracts/`)
+- A blockchain bridge service (`service/app.py`) used by backend APIs
+- Optional Hardhat tooling for future on-chain deployment work
 
-```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat ignition deploy ./ignition/modules/Lock.js
-```
+## Bridge service API
+
+- `GET /health` - service health and active network
+- `POST /v1/records/store` - stores campaign hash record
+- `POST /v1/records/verify` - verifies campaign hash against stored ledger record
+
+The current bridge runs in `simulated-local` mode and keeps records in a persisted volume (`/data/ledger.json`) so backend and frontend can be tested end-to-end.

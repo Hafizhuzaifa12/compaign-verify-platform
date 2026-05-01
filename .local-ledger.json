@@ -1,0 +1,9 @@
+{
+  "1": {
+    "campaign_id": 1,
+    "content_hash": "e44ff386e92c4f7dcfb1d9da352681dcee8b218014c9f8ce17fc08007749dd53",
+    "tx_hash": "0x00fbf58db28cf79cc63897c3766f9a4a224ce44e18f9d8d286a3e6ad2781bdf3",
+    "network": "simulated-local",
+    "stored_at": "2026-04-30T19:33:08.468396+00:00"
+  }
+}
