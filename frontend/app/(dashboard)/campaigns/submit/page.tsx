@@ -88,33 +88,31 @@ function SubmitLeftIllustration() {
 
 export default function SubmitPage() {
   return (
-    <div className="flex min-h-[calc(100vh-64px)] w-full flex-col bg-[#F1F5F9] md:flex-row">
-      <aside
-        className="relative hidden w-full shrink-0 flex-col items-center justify-center bg-[var(--site-nav-bg)] md:sticky md:top-[64px] md:flex md:h-[calc(100vh-64px)] md:w-2/5 md:self-start md:overflow-y-auto"
+    <div className="flex min-h-[calc(100vh-60px)] w-full max-w-none flex-col bg-[var(--surface-page)] md:flex-row">
+      {/* <aside
+        className="relative hidden w-full shrink-0 flex-col items-center justify-center bg-[var(--site-nav-bg)] md:sticky md:top-0 md:flex md:h-[calc(100vh-60px)] md:w-1/4 md:self-start md:overflow-y-auto"
         aria-hidden
       >
         <SubmitLeftIllustration />
-      </aside>
+      </aside> */}
 
-      <div className="flex w-full flex-1 flex-col bg-[#F1F5F9] px-4 py-5 md:w-3/5 md:px-6 md:py-6">
-        <div className="mx-auto w-full max-w-2xl">
-          <header className="mb-5 md:mb-6">
-            <h1
-              className="text-[28px] font-bold text-[#0F172A]"
-              style={{ fontFamily: "var(--font-sora), sans-serif" }}
-            >
-              Submit a Campaign
-            </h1>
-            <p
-              className="mt-1 text-[#64748B]"
-              style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
-            >
-              Fill in the details below
-            </p>
-          </header>
-          <div className="rounded-2xl border border-[#E2E8F0] bg-white p-6 shadow-sm md:p-8">
-            <CampaignForm />
-          </div>
+      <div className="flex w-full flex-1 flex-col bg-white px-6 py-8 md:w-3/4 md:max-w-none md:px-10 md:py-8">
+        <header className="mb-5 md:mb-6">
+          <h1
+            className="text-[28px] font-bold text-[var(--text-heading)]"
+            style={{ fontFamily: "var(--font-sora), sans-serif" }}
+          >
+            Submit a Campaign
+          </h1>
+          <p
+            className="mt-1 text-[var(--text-muted)]"
+            style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
+          >
+            Fill in the details below
+          </p>
+        </header>
+        <div className="w-full rounded-2xl border border-[var(--border-default)] bg-white p-6 shadow-sm md:p-8">
+          <CampaignForm />
         </div>
       </div>
     </div>

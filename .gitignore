@@ -1,9 +1,19 @@
-# Virtual environment
-venv/
-.venv/
-__pycache__/
-*.pyc
-*.pyo
+# Virtual environments (any path / common names)
+**/.venv/
+**/venv/
+**/env/
+**/ENV/
+**/.virtualenv/
+**/.venv*/
+**/*-venv/
+
+# Python bytecode / caches
+**/__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Environment variables
 .env

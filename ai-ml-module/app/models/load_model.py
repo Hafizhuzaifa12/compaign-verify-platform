@@ -44,21 +44,37 @@ def load_trained_artifacts():
         try:
             model = joblib.load(settings.MODEL_PATH)
             vectorizer = joblib.load(settings.VECTORIZER_PATH)
-            _validate_model(model, vectorizer)
-            _model = model
-            _vectorizer = vectorizer
-            _loaded = True
-            logger.info("Model loaded | classes=%s", list(model.classes_))
-            return model, vectorizer
         except FileNotFoundError as e:
             logger.error("File not found: %s", e)
-        except ValueError as e:
-            logger.error("Validation failed: %s", e)
+            _model, _vectorizer, _loaded = None, None, False
+            return None, None
         except Exception as e:
-            logger.error("Load error: %s: %s", type(e).__name__, e)
+            logger.error(
+                "Failed to unpickle model/vectorizer (%s): %s",
+                type(e).__name__,
+                e,
+            )
+            if "BitGenerator" in str(e) or "MT19937" in str(e):
+                logger.error(
+                    "This is usually a NumPy major-version mismatch with old joblib files. "
+                    "Fix: use numpy<2 in this service (see requirements.txt) OR remove "
+                    "training/model.pkl + training/vectorizer.pkl and run: python -m training.train"
+                )
+            _model, _vectorizer, _loaded = None, None, False
+            return None, None
 
-        _model, _vectorizer, _loaded = None, None, False
-        return None, None
+        try:
+            _validate_model(model, vectorizer)
+        except ValueError as e:
+            logger.error("Model interface validation failed: %s", e)
+            _model, _vectorizer, _loaded = None, None, False
+            return None, None
+
+        _model = model
+        _vectorizer = vectorizer
+        _loaded = True
+        logger.info("Model loaded | classes=%s", list(model.classes_))
+        return model, vectorizer
 
 
 def get_model():

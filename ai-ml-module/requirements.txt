@@ -1,11 +1,12 @@
 fastapi==0.115.0
 uvicorn==0.30.0
 joblib==1.4.2
-# Match training/model.pkl (pickled with sklearn 1.8 + numpy 2 random state)
 scikit-learn==1.8.0
 nltk==3.9.1
 pydantic==2.9.0
 python-multipart==0.0.9
-numpy==2.0.2
+# NumPy 2.x often fails unpickling older joblib artifacts ("MT19937 is not a known BitGenerator").
+# Pin 1.26.x for stable loads. To use NumPy 2+, delete training/*.pkl and re-run: python -m training.train
+numpy>=1.26.4,<2.0.0
 pandas==2.2.2
 scipy==1.14.1

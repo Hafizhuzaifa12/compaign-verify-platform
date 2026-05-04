@@ -29,39 +29,39 @@ export default function CampaignTableRow({ campaign }: Props) {
   );
 
   return (
-    <tr className="border-b border-[#E2E8F0] transition-colors hover:bg-[#F8FAFC]">
-      <td className="px-4 py-4 align-top">
+    <tr className="border-b border-[var(--border-default)] transition-colors hover:bg-[var(--surface-subtle)]">
+      <td className="px-6 py-4 align-top">
         <div
-          className="font-semibold text-[#0F172A]"
+          className="font-semibold text-[var(--text-heading)]"
           style={{ fontFamily: "var(--font-sora), sans-serif" }}
         >
           {campaign.title}
         </div>
         <p
-          className="mt-1 text-sm text-[#64748B]"
+          className="mt-1 text-sm text-[var(--text-muted)]"
           style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
         >
           Type: {campaign.type}
         </p>
         <div className="mt-3 md:hidden">{badge}</div>
       </td>
-      <td className="hidden px-4 py-4 align-middle md:table-cell">{badge}</td>
+      <td className="hidden px-6 py-4 align-middle md:table-cell">{badge}</td>
       <td
-        className="hidden px-4 py-4 align-middle text-sm text-[#475569] lg:table-cell"
+        className="hidden px-6 py-4 align-middle text-sm text-[var(--text-soft)] lg:table-cell"
         style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
       >
         {campaign.ai_label ?? "Pending"}
       </td>
       <td
-        className="hidden px-4 py-4 align-middle text-sm text-[#475569] xl:table-cell"
+        className="hidden px-6 py-4 align-middle text-sm text-[var(--text-soft)] xl:table-cell"
         style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
       >
         Trust {trustPct !== null ? `${trustPct}%` : "N/A"} · Risk{" "}
         {riskPct !== null ? `${riskPct}%` : "N/A"}
       </td>
-      <td className="px-4 py-4 text-right align-middle">
+      <td className="px-6 py-4 text-right align-middle">
         <Link
-          className="text-sm font-medium text-[#2563EB] hover:underline"
+          className="text-sm font-medium text-[var(--brand-primary)] hover:underline"
           href={`/campaigns/${campaign.id}`}
         >
           View details

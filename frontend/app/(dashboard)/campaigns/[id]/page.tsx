@@ -74,7 +74,7 @@ export default function CampaignDetail() {
     }
   };
 
-  if (!id) return <p className="p-6 text-gray-500">Invalid campaign id.</p>;
+  if (!id) return <p className="p-6 text-[var(--text-muted)]">Invalid campaign id.</p>;
 
   if (loading) {
     return <p className="p-6">Loading…</p>;
@@ -87,7 +87,7 @@ export default function CampaignDetail() {
           {error}
         </p>
         <Link
-          className="inline-block mt-4 text-[#2563EB] hover:underline"
+          className="inline-block mt-4 text-[var(--brand-primary)] hover:underline"
           href="/dashboard"
         >
           Back to dashboard
@@ -98,9 +98,9 @@ export default function CampaignDetail() {
 
   if (!campaign) {
     return (
-      <p className="p-6 text-gray-500">
+      <p className="p-6 text-[var(--text-muted)]">
         No campaign found.{" "}
-        <Link className="text-[#2563EB] hover:underline" href="/dashboard">
+        <Link className="text-[var(--brand-primary)] hover:underline" href="/dashboard">
           Dashboard
         </Link>
       </p>
@@ -114,52 +114,52 @@ export default function CampaignDetail() {
     typeof campaign.risk_score === "number" ? Math.round(campaign.risk_score * 100) : null;
 
   return (
-    <div className="p-6 bg-[#F1F5F9] min-h-screen max-w-3xl">
+    <div className="p-6 bg-[var(--surface-page)] min-h-screen max-w-3xl">
       <Link
-        className="text-sm text-[#2563EB] hover:underline mb-4 inline-block"
+        className="text-sm text-[var(--brand-primary)] hover:underline mb-4 inline-block"
         href="/dashboard"
       >
         ← Dashboard
       </Link>
-      <h1 className="text-2xl font-bold text-[#0F172A] mb-2">{campaign.title}</h1>
-      <p className="text-sm text-[#64748B] mb-6">Status: {campaign.status}</p>
-      <div className="mb-6 p-4 border border-[#E2E8F0] rounded-lg bg-white">
-        <h2 className="font-bold text-[#0F172A] mb-2">AI risk assessment</h2>
-        <p className="text-[#334155]">AI label: {campaign.ai_label ?? "Pending"}</p>
-        <p className="text-[#334155]">
+      <h1 className="text-2xl font-bold text-[var(--text-heading)] mb-2">{campaign.title}</h1>
+      <p className="text-sm text-[var(--text-muted)] mb-6">Status: {campaign.status}</p>
+      <div className="mb-6 p-4 border border-[var(--border-default)] rounded-lg bg-white">
+        <h2 className="font-bold text-[var(--text-heading)] mb-2">AI risk assessment</h2>
+        <p className="text-[var(--text-body)]">AI label: {campaign.ai_label ?? "Pending"}</p>
+        <p className="text-[var(--text-body)]">
           Confidence:{" "}
           {typeof campaign.ai_confidence === "number"
             ? `${Math.round(campaign.ai_confidence * 100)}%`
             : "N/A"}
         </p>
-        <p className="text-[#334155]">Trust score: {trustPct !== null ? `${trustPct}%` : "N/A"}</p>
-        <p className="text-[#334155]">Risk score: {riskPct !== null ? `${riskPct}%` : "N/A"}</p>
+        <p className="text-[var(--text-body)]">Trust score: {trustPct !== null ? `${trustPct}%` : "N/A"}</p>
+        <p className="text-[var(--text-body)]">Risk score: {riskPct !== null ? `${riskPct}%` : "N/A"}</p>
       </div>
 
-      <p className="text-[#0F172A] mb-4">
+      <p className="text-[var(--text-heading)] mb-4">
         <span className="font-semibold">Type:</span> {campaign.type}
       </p>
-      <p className="whitespace-pre-wrap text-[#334155] mb-4">
+      <p className="whitespace-pre-wrap text-[var(--text-body)] mb-4">
         <span className="font-semibold block mb-1">Content</span>
         {campaign.content}
       </p>
       {campaign.url ? (
-        <p className="mb-4 break-all text-[#2563EB]">
-          <span className="font-semibold text-[#0F172A]">URL: </span>
+        <p className="mb-4 break-all text-[var(--brand-primary)]">
+          <span className="font-semibold text-[var(--text-heading)]">URL: </span>
           <a href={campaign.url} className="underline" target="_blank" rel="noreferrer">
             {campaign.url}
           </a>
         </p>
       ) : null}
 
-      <p className="text-[#334155] mb-2">
+      <p className="text-[var(--text-body)] mb-2">
         <span className="font-semibold">Security warnings: </span>
         {formatWarnings(campaign.security_warnings)}
       </p>
 
       {campaign.content_hash_sha256 ? (
-        <p className="text-sm text-[#64748B] mb-4 break-all">
-          <span className="font-medium text-[#0F172A]">Content hash (SHA-256): </span>
+        <p className="text-sm text-[var(--text-muted)] mb-4 break-all">
+          <span className="font-medium text-[var(--text-heading)]">Content hash (SHA-256): </span>
           {campaign.content_hash_sha256}
         </p>
       ) : null}
@@ -185,13 +185,13 @@ export default function CampaignDetail() {
         </div>
       )}
       {verifyState ? (
-        <p className="mt-3 text-sm text-[#475569]">Verification state: {verifyState}</p>
+        <p className="mt-3 text-sm text-[var(--text-soft)]">Verification state: {verifyState}</p>
       ) : null}
 
       {campaign.tx_hash && (
-        <div className="mt-6 p-4 border border-[#E2E8F0] rounded-lg bg-white">
-          <h2 className="font-bold text-[#0F172A] mb-2">Blockchain verification</h2>
-          <p className="text-sm text-[#334155] mb-2">
+        <div className="mt-6 p-4 border border-[var(--border-default)] rounded-lg bg-white">
+          <h2 className="font-bold text-[var(--text-heading)] mb-2">Blockchain verification</h2>
+          <p className="text-sm text-[var(--text-body)] mb-2">
             Network: {campaign.blockchain_network ?? "unknown"}
           </p>
           {campaign.blockchain_network &&
@@ -205,21 +205,21 @@ export default function CampaignDetail() {
               View transaction
             </a>
           ) : (
-            <p className="text-sm break-all text-[#334155]">Tx Hash: {campaign.tx_hash}</p>
+            <p className="text-sm break-all text-[var(--text-body)]">Tx Hash: {campaign.tx_hash}</p>
           )}
         </div>
       )}
 
-      <div className="mt-6 p-4 border border-[#E2E8F0] rounded-lg bg-white">
-        <h2 className="font-bold text-[#0F172A] mb-2">Marketing improvement tips</h2>
+      <div className="mt-6 p-4 border border-[var(--border-default)] rounded-lg bg-white">
+        <h2 className="font-bold text-[var(--text-heading)] mb-2">Marketing improvement tips</h2>
         {tips.length > 0 ? (
-          <ul className="list-disc pl-5 space-y-1 text-[#334155]">
+          <ul className="list-disc pl-5 space-y-1 text-[var(--text-body)]">
             {tips.map((tip) => (
               <li key={tip}>{tip}</li>
             ))}
           </ul>
         ) : (
-          <p className="text-gray-500">No tips available</p>
+          <p className="text-[var(--text-muted)]">No tips available</p>
         )}
       </div>
     </div>

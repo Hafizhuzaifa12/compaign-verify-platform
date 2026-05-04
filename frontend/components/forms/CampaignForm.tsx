@@ -82,8 +82,8 @@ export default function CampaignForm() {
     }
   };
 
-  const labelCls = "mb-2 block text-sm font-medium text-[#334155]";
-  const fieldCls = "mb-6 w-full rounded-lg border border-[#E2E8F0] bg-white";
+  const labelCls = "mb-2 block text-sm font-medium text-[var(--text-body)]";
+  const fieldCls = "mb-6 w-full rounded-lg border border-[var(--border-default)] bg-white";
 
   return (
     <form onSubmit={handleSubmit} className="w-full">
@@ -95,7 +95,7 @@ export default function CampaignForm() {
 
       <section className="mb-8">
         <h2
-          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          className="mb-4 text-lg font-semibold text-[var(--text-heading)]"
           style={{ fontFamily: "var(--font-sora), sans-serif" }}
         >
           Basics
@@ -118,7 +118,7 @@ export default function CampaignForm() {
           name="type"
           value={formData.type}
           onChange={handleChange}
-          className="mb-6 w-full rounded-lg border border-[#E2E8F0] bg-white p-2"
+          className="mb-6 w-full rounded-lg border border-[var(--border-default)] bg-white p-2"
         >
           {TYPES.map((t) => (
             <option key={t.value || "empty"} value={t.value}>
@@ -128,11 +128,11 @@ export default function CampaignForm() {
         </select>
       </section>
 
-      <div className="my-8 border-t border-[#E2E8F0]" />
+      <div className="my-8 border-t border-[var(--border-default)]" />
 
       <section className="mb-8">
         <h2
-          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          className="mb-4 text-lg font-semibold text-[var(--text-heading)]"
           style={{ fontFamily: "var(--font-sora), sans-serif" }}
         >
           Content
@@ -182,11 +182,11 @@ export default function CampaignForm() {
         />
       </section>
 
-      <div className="my-8 border-t border-[#E2E8F0]" />
+      <div className="my-8 border-t border-[var(--border-default)]" />
 
       <section>
         <h2
-          className="mb-4 text-lg font-semibold text-[#0F172A]"
+          className="mb-4 text-lg font-semibold text-[var(--text-heading)]"
           style={{ fontFamily: "var(--font-sora), sans-serif" }}
         >
           Link & submit

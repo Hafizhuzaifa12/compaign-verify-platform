@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import apiClient, { apiErrorMessage, getAccessToken, setTokens } from "@/lib/api-client";
 import { formatMaxAvatarSize, MAX_AVATAR_BYTES } from "@/lib/upload-limits";
 import type { UserMe } from "@/lib/types/user";
-import { ShieldLogoIcon } from "@/components/icons/shield-logo";
 
 type RegisterResponse = {
   message: string;
@@ -121,71 +120,29 @@ export default function RegisterPage() {
 
   if (!sessionReady) {
     return (
-      <div className="flex min-h-[50vh] items-center justify-center bg-[#F1F5F9] text-sm text-[#64748B]">
+      <div className="flex min-h-[50vh] items-center justify-center bg-[var(--surface-page)] text-sm text-[var(--text-muted)]">
         Redirecting…
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-[calc(100dvh-64px)] w-full flex-col bg-[#F1F5F9] md:min-h-[calc(100vh-64px)] md:flex-row md:items-stretch">
-      <div className="relative hidden w-full shrink-0 overflow-hidden bg-[var(--site-nav-bg)] text-white md:flex md:min-h-[calc(100vh-64px)] md:w-2/5 md:flex-col">
-        <div className="pointer-events-none absolute inset-0 opacity-10">
-          <div className="absolute right-12 top-16 h-56 w-56 rounded-full border-2 border-white" />
-          <div className="absolute bottom-20 left-8 h-80 w-80 rounded-full border-2 border-white opacity-20" />
-          <div className="absolute left-1/4 top-1/3 h-40 w-40 rounded-full bg-white opacity-15" />
-        </div>
-        <div className="relative z-10 flex h-full min-h-0 flex-col p-8 md:p-10">
-          <div
-            className="mb-8 flex shrink-0 items-center gap-2 font-semibold text-white"
+    <div className="flex w-full flex-col justify-center bg-white px-6 py-12 md:min-h-screen md:px-10">
+      <form onSubmit={handleSubmit} className="mx-auto w-full max-w-lg">
+        <div className="mb-10">
+          <h1
+            className="text-[28px] font-bold leading-tight text-[var(--text-heading)]"
             style={{ fontFamily: "var(--font-sora), sans-serif" }}
           >
-            <ShieldLogoIcon className="text-white" />
-            Campaign Verify
-          </div>
-          <div className="flex max-w-lg flex-1 flex-col justify-center gap-8">
-            <div>
-              <h2
-                className="mb-4 text-[36px] font-bold leading-tight text-white"
-                style={{ fontFamily: "var(--font-sora), sans-serif" }}
-              >
-                Join the platform.
-              </h2>
-              <p className="text-base text-white/70" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
-                Create your profile and start submitting campaigns for verification in minutes.
-              </p>
-            </div>
-            <ul
-              className="space-y-3 text-[14px] text-white"
-              style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
-            >
-              <li>✓ Instant verification</li>
-              <li>✓ Full transparency</li>
-              <li>✓ Trusted by 500+ orgs</li>
-            </ul>
-          </div>
+            Create your account
+          </h1>
+          <p
+            className="mt-2 text-[14px] text-[var(--text-muted)]"
+            style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
+          >
+            Get started in minutes
+          </p>
         </div>
-      </div>
-
-      <div className="flex w-full flex-1 flex-col justify-center bg-white px-4 py-8 sm:px-6 sm:py-10 md:w-3/5 md:px-8 md:py-10 lg:px-12">
-        <form
-          onSubmit={handleSubmit}
-          className="mx-auto w-full max-w-2xl rounded-2xl border border-[#E2E8F0] bg-white p-8 shadow-md sm:p-10 md:p-12"
-        >
-          <div className="mb-10">
-            <h1
-              className="mb-3 text-[32px] font-bold leading-tight text-[#0F172A] sm:text-[34px]"
-              style={{ fontFamily: "var(--font-sora), sans-serif" }}
-            >
-              Create your account
-            </h1>
-            <p
-              className="text-base text-[#475569] sm:text-[17px]"
-              style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}
-            >
-              Start verifying campaigns today
-            </p>
-          </div>
 
           {message ? (
             <p className="mb-4 text-sm text-red-600" role="alert">
@@ -237,7 +194,7 @@ export default function RegisterPage() {
             onChange={(e) => setBio(e.target.value)}
             maxLength={500}
           />
-          <label className="mb-2 block text-sm font-medium text-[#334155]" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          <label className="mb-2 block text-sm font-medium text-[var(--text-body)]" style={{ fontFamily: "var(--font-dm-sans), sans-serif" }}>
             Profile photo (optional, max {formatMaxAvatarSize()})
           </label>
           <Input
@@ -268,19 +225,18 @@ export default function RegisterPage() {
           <Button
             type="submit"
             disabled={loading}
-            className="h-12 w-full cursor-pointer rounded-lg bg-[#2563EB] text-base font-medium text-white"
+            className="h-12 w-full cursor-pointer rounded-lg bg-[var(--brand-primary)] text-base font-medium text-white"
           >
             {loading ? "Registering…" : "Register"}
           </Button>
 
-          <p className="mt-6 text-center text-sm text-[#475569]">
+          <p className="mt-6 text-center text-sm text-[var(--text-soft)]">
             Already have an account?{" "}
-            <Link className="font-medium text-[#2563EB] hover:underline" href="/auth/login">
-              Log in
+            <Link className="font-medium text-[var(--brand-primary)] hover:underline" href="/auth/login">
+              Sign in
             </Link>
           </p>
-        </form>
-      </div>
+      </form>
     </div>
   );
 }

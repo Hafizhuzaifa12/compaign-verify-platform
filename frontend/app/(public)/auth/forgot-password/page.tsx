@@ -36,13 +36,13 @@ export default function ForgotPassword() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F1F5F9]">
+    <div className="min-h-screen flex items-center justify-center bg-[var(--surface-page)]">
       <form
         onSubmit={handleSubmit}
-        className="bg-white p-8 rounded-lg shadow w-96 border"
+        className="w-full max-w-md rounded-2xl border border-[var(--border-default)] bg-white p-8 shadow-sm"
       >
-        <h1 className="text-xl font-bold text-[#0F172A] mb-4">Forgot password</h1>
-        <p className="text-sm text-[#475569] mb-4">
+        <h1 className="text-xl font-bold text-[var(--text-heading)] mb-4">Forgot password</h1>
+        <p className="text-sm text-[var(--text-soft)] mb-4">
           We’ll email a one-time code if this account exists.
         </p>
 
@@ -65,13 +65,13 @@ export default function ForgotPassword() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full bg-[#2563EB] text-white"
+          className="w-full bg-[var(--brand-primary)] text-white"
         >
           {loading ? "Sending…" : "Send code"}
         </Button>
 
-        <p className="text-sm text-center text-[#475569] mt-3">
-          <Link className="text-[#2563EB] hover:underline" href="/auth/login">
+        <p className="text-sm text-center text-[var(--text-soft)] mt-3">
+          <Link className="text-[var(--brand-primary)] hover:underline" href="/auth/login">
             Back to login
           </Link>
         </p>

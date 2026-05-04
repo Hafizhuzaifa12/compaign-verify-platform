@@ -54,7 +54,7 @@ function NavLink({
       onClick={onNavigate}
       className={`rounded-full px-3 py-2 text-sm font-medium transition-colors duration-200 sm:px-4 ${
         active
-          ? "bg-[#F1F5F9] text-[#0F172A]"
+          ? "bg-[var(--surface-page)] text-[var(--text-heading)]"
           : "text-white/75 hover:bg-white/10 hover:text-white"
       }`}
       aria-current={active ? "page" : undefined}
@@ -214,7 +214,7 @@ export function SiteHeader() {
         <button
           type="button"
           onClick={onLogout}
-          className="shrink-0 cursor-pointer text-sm font-medium text-[#2563EB] hover:underline"
+          className="shrink-0 cursor-pointer text-sm font-medium text-[var(--brand-primary)] hover:underline"
         >
           Log out
         </button>
