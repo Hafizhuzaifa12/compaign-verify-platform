@@ -2,16 +2,19 @@ import re
 import logging
 import nltk
 from nltk.corpus import stopwords
+from sklearn.feature_extraction.text import ENGLISH_STOP_WORDS
 
 logger = logging.getLogger(__name__)
 
-# ── NLTK bootstrap (safe offline; Dockerfile pre-downloads) ──────────
+# ── Stopwords bootstrap (no runtime downloader calls) ─────────────────
 try:
     nltk.data.find("corpora/stopwords")
+    STOP_WORDS = set(stopwords.words("english"))
 except LookupError:
-    nltk.download("stopwords", quiet=True)
-
-STOP_WORDS = set(stopwords.words("english"))
+    logger.warning(
+        "NLTK stopwords corpus not found; using sklearn ENGLISH_STOP_WORDS fallback."
+    )
+    STOP_WORDS = set(ENGLISH_STOP_WORDS)
 
 # ── Compiled patterns ────────────────────────────────────────────────
 URL_PATTERN = re.compile(

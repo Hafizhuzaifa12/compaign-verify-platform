@@ -1,5 +1,5 @@
 fastapi
-python-multipart
+python-multipart==0.0.27
 uvicorn
 sqlalchemy
 psycopg2-binary
