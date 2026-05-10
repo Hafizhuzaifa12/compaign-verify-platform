@@ -1,0 +1,17 @@
+services:
+  blockchain-service:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    container_name: cvp-blockchain-only
+    environment:
+      BLOCKCHAIN_NETWORK: simulated-local
+      LEDGER_FILE: /data/ledger.json
+      TX_SALT: local-dev-salt
+    ports:
+      - "8002:8002"
+    volumes:
+      - blockchain-ledger:/data
+
+volumes:
+  blockchain-ledger:
