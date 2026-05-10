@@ -57,6 +57,8 @@
 }
 
 :root {
+  --font-dm-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-sora: ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   /* Sky-blue SaaS theme (no brown / no cold silver grays) */
@@ -106,6 +108,8 @@
 }
 
 .dark {
+  --font-dm-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-sora: ui-sans-serif, system-ui, sans-serif;
   --font-heading: var(--font-sora), ui-sans-serif, system-ui, sans-serif;
   --font-body: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   --site-nav-bg: #0c4a6e;

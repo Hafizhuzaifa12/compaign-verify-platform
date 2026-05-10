@@ -41,17 +41,17 @@ git clone <your-repo-url>
 cd compaign-verify-platform
 ```
 
-### 2) Run Full Stack
+### 2) Run Full Stack (One Command)
 
 ```bash
-docker-compose up --build
+docker compose up --build
 ```
 
 This starts:
 - Frontend on `http://localhost:3000`
 - Backend API on `http://localhost:8000`
 - AI Service on `http://localhost:8001`
-- Blockchain service on `http://localhost:8002`
+- Blockchain service on `http://localhost:8002` (bridge API under `/v1/*`)
 - PostgreSQL on `localhost:5432`
 
 ### 3) Open the App
@@ -61,20 +61,35 @@ This starts:
 - AI health: `http://localhost:8001/health`
 - Blockchain service health: `http://localhost:8002/health`
 
+### 4) Quick End-to-End API Check
+
+1. Register/login in frontend and submit a campaign.
+2. Verify backend campaign response includes:
+   - `ai_label`, `risk_score`, `trust_score`
+   - `status` (e.g., `Verified on Blockchain`, `Suspicious`, `High Risk`)
+   - `tx_hash` when blockchain store succeeds
+3. Verify blockchain API directly:
+
+```bash
+curl -X POST http://localhost:8002/v1/records/verify \
+  -H "Content-Type: application/json" \
+  -d '{"campaign_id":1,"content_hash":"<sha256-from-backend>"}'
+```
+
 ## Docker Orchestration Notes
 
 - Root compose file: `docker-compose.yml`
 - Backend Dockerfile: `backend-core/Dockerfile`
 - Frontend Dockerfile: `frontend/Dockerfile`
 - AI Dockerfile: `ai-ml-module/Dockerfile`
-- Blockchain Dockerfile: `blockchain-infra/Dockerfile.service`
+- Blockchain Dockerfile: `blockchain-infra/Dockerfile`
 - Database service included as `db` (PostgreSQL)
 
 ## Lead Checklist (Pre-Presentation)
 
 Use this checklist before demo:
 
-- One-command run works: `docker-compose up --build`
+- One-command run works: `docker compose up --build`
 - Frontend auth flow works without CORS/token issues
 - End-to-end loop works: Login -> Submit -> AI+security -> blockchain record -> report -> re-verify
 - Security checks work: weak password rejection + marketing tips visibility
