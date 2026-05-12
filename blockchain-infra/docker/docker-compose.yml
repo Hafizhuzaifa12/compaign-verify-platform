@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: verit-anvil
+    command: "anvil --host 0.0.0.0 --chain-id 31337 --block-time 2"
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - "cast block-number --rpc-url http://localhost:8545 >/dev/null 2>&1"
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  ipfs:
+    image: ipfs/kubo:latest
+    container_name: verit-ipfs
+    ports:
+      - "5001:5001" # API
+      - "8080:8080" # Gateway
+    volumes:
+      - ipfs_data:/data/ipfs
+
+  proxy:
+    image: nginx:1.27-alpine
+    container_name: verit-proxy
+    depends_on:
+      - anvil
+      - ipfs
+    ports:
+      - "8088:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  ipfs_data:

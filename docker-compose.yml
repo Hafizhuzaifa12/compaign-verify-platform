@@ -1,0 +1,38 @@
+version: "3.9"
+
+services:
+  frontend:
+    build: ./frontend
+    container_name: verit-frontend
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+  backend:
+    build: ./backend-core
+    container_name: verit-backend
+    environment:
+      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      AI_SERVICE_URL: http://ai:8001
+      BLOCKCHAIN_RPC_URL: http://anvil:8545
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ai
+      - anvil
+
+  ai:
+    build: ./ai-ml-module
+    container_name: verit-ai
+    ports:
+      - "8001:8001"
+
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: verit-anvil
+    command: "anvil --host 0.0.0.0 --chain-id 31337 --block-time 2"
+    ports:
+      - "8545:8545"
