@@ -1,9 +1,91 @@
-version: "3.9"
+
 
 services:
+  # ── PostgreSQL ────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    container_name: verit-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: verit
+      POSTGRES_PASSWORD: verit_dev_password
+      POSTGRES_DB: verit_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U verit -d verit_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # ── AI / ML inference service ─────────────────────────────────
+  ai:
+    build: ./ai-ml-module
+    container_name: verit-ai
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 5
+
+  # ── Anvil local blockchain node ───────────────────────────────
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    container_name: verit-anvil
+    command: ["anvil", "--host", "0.0.0.0", "--chain-id", "31337", "--block-time", "2"]
+    ports:
+      - "8545:8545"
+    healthcheck:
+      test: ["CMD-SHELL", "cast block-number --rpc-url http://127.0.0.1:8545 || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Blockchain deployer (Init Container) ──────────────────────
+  deployer:
+    build: ./blockchain-infra
+    container_name: verit-deployer
+    environment:
+      RPC_URL: http://anvil:8545
+    depends_on:
+      anvil:
+        condition: service_healthy
+
+  # ── FastAPI backend core ──────────────────────────────────────
+  backend:
+    build: ./backend-core
+    container_name: verit-backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://verit:verit_dev_password@db:5432/verit_db
+      SECRET_KEY: ${SECRET_KEY:-verit-local-dev-secret-change-in-production}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+      AI_SERVICE_URL: http://ai:8001
+      BLOCKCHAIN_RPC_URL: http://anvil:8545
+      REGISTRY_CONTRACT_ADDRESS: ${REGISTRY_CONTRACT_ADDRESS:-}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      ai:
+        condition: service_healthy
+
+  # ── Next.js frontend ──────────────────────────────────────────
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: http://localhost:8000
     container_name: verit-frontend
+    restart: unless-stopped
     environment:
       NEXT_PUBLIC_API_URL: http://localhost:8000
     ports:
@@ -11,28 +93,5 @@ services:
     depends_on:
       - backend
 
-  backend:
-    build: ./backend-core
-    container_name: verit-backend
-    environment:
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
-      AI_SERVICE_URL: http://ai:8001
-      BLOCKCHAIN_RPC_URL: http://anvil:8545
-    ports:
-      - "8000:8000"
-    depends_on:
-      - ai
-      - anvil
-
-  ai:
-    build: ./ai-ml-module
-    container_name: verit-ai
-    ports:
-      - "8001:8001"
-
-  anvil:
-    image: ghcr.io/foundry-rs/foundry:latest
-    container_name: verit-anvil
-    command: "anvil --host 0.0.0.0 --chain-id 31337 --block-time 2"
-    ports:
-      - "8545:8545"
+volumes:
+  pgdata:

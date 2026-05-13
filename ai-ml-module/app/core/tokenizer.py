@@ -1,47 +1,67 @@
-"""Lightweight text tokenizer used by the placeholder classifier.
-
-In production this is replaced by the HuggingFace AutoTokenizer for the
-deployed multimodal model. The interface here matches the subset we use.
-"""
-
-from __future__ import annotations
-
 import re
-from collections.abc import Iterable
+import logging
+import nltk
+from nltk.corpus import stopwords
 
-_WORD_RE = re.compile(r"[A-Za-z0-9']+")
+logger = logging.getLogger(__name__)
 
-# A tiny vocabulary of "manipulation markers" used purely for the demo
-# heuristic. The real model learns these signals end-to-end.
-_RED_FLAGS = frozenset(
-    {
-        "miracle",
-        "guaranteed",
-        "100%",
-        "shocking",
-        "exposed",
-        "secret",
-        "they",
-        "won't",
-        "tell",
-        "you",
-    }
+# ── NLTK bootstrap (safe offline; Dockerfile pre-downloads) ──────────
+try:
+    nltk.data.find("corpora/stopwords")
+except LookupError:
+    nltk.download("stopwords", quiet=True)
+
+STOP_WORDS = set(stopwords.words("english"))
+
+# ── Compiled patterns ────────────────────────────────────────────────
+URL_PATTERN = re.compile(
+    r"https?://[^\s<>\"']+|www\.[^\s<>\"']+", re.IGNORECASE
 )
+EMAIL_PATTERN = re.compile(
+    r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
+)
+IP_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
+HTML_TAG_PATTERN = re.compile(r"<[^>]+>")
+PHONE_PATTERN = re.compile(r"\b[\d\-\(\)\+]{7,}\b")
+NON_ALPHA_PATTERN = re.compile(r"[^a-z\s]")
+MULTI_SPACE_PATTERN = re.compile(r"\s{2,}")
 
 
-class Tokenizer:
-    def tokenize(self, text: str) -> list[str]:
-        return [t.lower() for t in _WORD_RE.findall(text)]
+def clean_text_for_vectorizer(text: str) -> str:
+    """Prepare text for TF-IDF: lowercase, strip noise, remove stopwords."""
+    text = text.lower()
+    text = HTML_TAG_PATTERN.sub(" ", text)
+    text = URL_PATTERN.sub(" specialtokenurl ", text)
+    text = EMAIL_PATTERN.sub(" specialtokenemail ", text)
+    text = IP_PATTERN.sub(" specialtokenip ", text)
+    text = PHONE_PATTERN.sub(" specialtokenphone ", text)
+    text = NON_ALPHA_PATTERN.sub(" ", text)
+    text = MULTI_SPACE_PATTERN.sub(" ", text)
+    words = [w for w in text.split() if w not in STOP_WORDS and len(w) > 1]
+    return " ".join(words)
 
-    def count_red_flags(self, text: str) -> int:
-        return sum(1 for t in self.tokenize(text) if t in _RED_FLAGS)
 
-    def vocab_coverage(self, tokens: Iterable[str]) -> float:
-        toks = list(tokens)
-        if not toks:
-            return 0.0
-        known = sum(1 for t in toks if t in _RED_FLAGS or len(t) > 2)
-        return known / len(toks)
+def extract_raw_signals(text: str) -> dict:
+    """Extract structural signals used by the rule engine."""
+    urls = URL_PATTERN.findall(text)
+    emails = EMAIL_PATTERN.findall(text)
+    ips = IP_PATTERN.findall(text)
 
+    ip_in_url = any(IP_PATTERN.search(u) for u in urls)
 
-tokenizer = Tokenizer()
+    total_chars = max(len(text), 1)
+    upper_chars = sum(1 for c in text if c.isupper())
+    special_chars = sum(1 for c in text if not c.isalnum() and not c.isspace())
+
+    return {
+        "urls": urls,
+        "url_count": len(urls),
+        "emails": emails,
+        "email_count": len(emails),
+        "ips": ips,
+        "ip_in_url": ip_in_url,
+        "uppercase_ratio": upper_chars / total_chars,
+        "special_char_count": special_chars,
+        "text_length": len(text),
+        "text_lower": text.lower(),
+    }

@@ -1,74 +1,87 @@
-"""Authenticity & deepfake-risk prediction.
+import logging
+from dataclasses import dataclass, field
+from app.models.load_model import get_model
+from app.core.tokenizer import clean_text_for_vectorizer, extract_raw_signals
+from app.core.features import compute_rule_score
+from app.core.config import settings
 
-The scaffolded scorer is intentionally simple — a transparent set of
-heuristics on top of token statistics. Swap `score()` for a real
-multimodal model when one is available; the I/O contract stays stable.
-"""
-
-from __future__ import annotations
-
-import math
-from dataclasses import dataclass
-
-from app.core.tokenizer import tokenizer
-from app.models.load_model import Model, load_model
+logger = logging.getLogger(__name__)
 
 
 @dataclass
-class Prediction:
-    authenticity_score: float  # 0–100, higher = more authentic
-    deepfake_score: float  # 0–100, higher = more synthetic
-    signals: dict[str, float]
-    model_name: str
-    model_version: str
+class PredictionResult:
+    label: str
+    confidence: float
+    final_score: float
+    ml_phishing_score: float
+    rule_score: float
+    indicators: list = field(default_factory=list)
+    is_fallback: bool = False
 
 
-def _clamp(value: float, lo: float = 0.0, hi: float = 100.0) -> float:
-    return max(lo, min(hi, value))
+def _get_ml_phishing_score(model, vectorizer, text: str):
+    """Run ML inference and return the phishing-class probability."""
+    try:
+        cleaned = clean_text_for_vectorizer(text)
+        if not cleaned.strip():
+            logger.warning("Cleaned text is empty — skipping ML prediction")
+            return None
+        vectorized = vectorizer.transform([cleaned])
+        probabilities = model.predict_proba(vectorized)[0]
+        classes = list(model.classes_)
+        if "Phishing" in classes:
+            phishing_idx = classes.index("Phishing")
+        else:
+            phishing_idx = 0
+            logger.warning("'Phishing' class not in model classes: %s", classes)
+        return float(probabilities[phishing_idx])
+    except Exception as e:
+        logger.error("ML prediction failed: %s", e)
+        return None
 
 
-def score(text: str, has_media: bool, model: Model | None = None) -> Prediction:
-    """Compute authenticity & deepfake-risk for a campaign.
+def _merge_scores(ml_score, rule_score):
+    """Blend ML and rule scores using configured weights."""
+    if ml_score is None:
+        return rule_score
 
-    Args:
-        text: Concatenation of campaign title + description.
-        has_media: Whether the campaign attached a media URL.
-        model: Optional model handle — `load_model()` is used otherwise.
-    """
-    mdl = model or load_model()
-    w = mdl.weights
+    if max(ml_score, rule_score) >= settings.HIGH_CONFIDENCE_OVERRIDE:
+        return max(ml_score, rule_score)
 
-    tokens = tokenizer.tokenize(text)
-    red_flags = tokenizer.count_red_flags(text)
-    coverage = tokenizer.vocab_coverage(tokens)
+    return settings.ML_WEIGHT * ml_score + settings.RULE_WEIGHT * rule_score
 
-    length_signal = math.log1p(len(tokens)) * w["length_norm"]
 
-    authenticity = (
-        w["bias"]
-        + w["red_flag_penalty"] * red_flags
-        + w["vocab_coverage_bonus"] * (coverage - 0.5)
-        + length_signal
-    )
-    if has_media:
-        authenticity += 2.5
+def _score_to_label(score: float) -> str:
+    if score >= settings.CONFIDENCE_THRESHOLD:
+        return "High Risk"
+    if score >= settings.SUSPICIOUS_THRESHOLD:
+        return "Suspicious"
+    return "Safe"
 
-    authenticity = _clamp(authenticity)
 
-    # Deepfake risk is the inverse residual, modulated by red-flag count.
-    deepfake = _clamp((100.0 - authenticity) * 0.35 + red_flags * 1.8)
+def get_prediction(text: str) -> PredictionResult:
+    """Run the full hybrid prediction pipeline on raw text."""
+    signals = extract_raw_signals(text)
+    rule_score, indicators = compute_rule_score(signals)
 
-    signals = {
-        "tokens": float(len(tokens)),
-        "red_flags": float(red_flags),
-        "vocab_coverage": round(coverage, 3),
-        "has_media": float(has_media),
-    }
+    model, vectorizer = get_model()
+    ml_phishing_score = None
+    is_fallback = True
 
-    return Prediction(
-        authenticity_score=round(authenticity, 1),
-        deepfake_score=round(deepfake, 1),
-        signals=signals,
-        model_name=mdl.name,
-        model_version=mdl.version,
+    if model is not None and vectorizer is not None:
+        ml_phishing_score = _get_ml_phishing_score(model, vectorizer, text)
+        if ml_phishing_score is not None:
+            is_fallback = False
+
+    final_score = _merge_scores(ml_phishing_score, rule_score)
+    label = _score_to_label(final_score)
+
+    return PredictionResult(
+        label=label,
+        confidence=round(final_score, 4),
+        final_score=round(final_score, 4),
+        ml_phishing_score=round(ml_phishing_score, 4) if ml_phishing_score is not None else None,
+        rule_score=round(rule_score, 4),
+        indicators=indicators,
+        is_fallback=is_fallback,
     )

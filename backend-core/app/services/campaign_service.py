@@ -88,15 +88,14 @@ class CampaignService:
             ai_failed = False
         except Exception as exc:
             logger.warning(
-                "AI service call failed for %s: %s — falling back to local scoring",
+                "AI service call failed for %s: %s — falling back to flagged",
                 campaign_id,
                 exc,
             )
-            authenticity = round(random.uniform(72.0, 99.0), 1)
-            deepfake = round(
-                max(0.0, 100.0 - authenticity - random.uniform(0, 5)), 1
-            )
-            ai_status = "verified" if authenticity >= 90.0 else "flagged"
+            # Honest fallback: we couldn't analyze, so mark as flagged
+            authenticity = 50.0
+            deepfake = 25.0
+            ai_status = "flagged"
             ai_failed = True
 
         tx_hash = "0x" + hashlib.sha256(campaign_id.encode()).hexdigest()
@@ -131,21 +130,54 @@ class CampaignService:
     async def _call_ai_service(
         self, campaign: Campaign
     ) -> tuple[float, float, str]:
-        url = f"{settings.AI_SERVICE_URL.rstrip('/')}/v1/predict"
-        payload = {
-            "title": campaign.title,
-            "description": campaign.description,
-            "media_url": campaign.media_url,
-        }
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        """Call the AI phishing-detection service and translate the result.
+
+        The AI module expects ``{"text": "..."}`` and returns a phishing
+        analysis.  We convert its 0-1 phishing score into the platform's
+        0-100 authenticity / deepfake-risk scores:
+
+        - authenticity = (1 - final_score) * 100
+        - deepfake_risk = final_score * 100
+        - label mapping: Safe → verified, Suspicious → flagged,
+          High Risk → rejected
+        """
+        url = f"{settings.AI_SERVICE_URL.rstrip('/')}/predict"
+
+        # Combine campaign fields into a single text block for analysis
+        text_parts = [campaign.title]
+        if campaign.description:
+            text_parts.append(campaign.description)
+        if campaign.media_url:
+            text_parts.append(campaign.media_url)
+        combined_text = " | ".join(text_parts)
+
+        payload = {"text": combined_text}
+        async with httpx.AsyncClient(timeout=30.0) as client:
             resp = await client.post(url, json=payload)
             resp.raise_for_status()
             data = resp.json()
-        return (
-            float(data["authenticity_score"]),
-            float(data["deepfake_score"]),
-            str(data.get("status", "flagged")),
+
+        # Translate phishing score (0-1) → platform scores (0-100)
+        final_score = float(data.get("final_score", 0.5))
+        authenticity = round((1.0 - final_score) * 100.0, 1)
+        deepfake = round(final_score * 100.0, 1)
+
+        # Map AI label → platform status
+        label = data.get("label", "Suspicious")
+        status_map = {
+            "Safe": "verified",
+            "Suspicious": "flagged",
+            "High Risk": "rejected",
+        }
+        status = status_map.get(label, "flagged")
+
+        logger.info(
+            "AI response for %s: label=%s final_score=%.4f → auth=%.1f df=%.1f status=%s | indicators=%s",
+            campaign.id, label, final_score, authenticity, deepfake, status,
+            data.get("indicators", []),
         )
+
+        return (authenticity, deepfake, status)
 
     # ----- maintenance -----
 

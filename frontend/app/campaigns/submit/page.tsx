@@ -41,7 +41,7 @@ export default function SubmitCampaignPage() {
             Submit a campaign for verification
           </h1>
           <p className="mt-2 text-muted-foreground">
-            We will analyze media authenticity, scan for deepfake artifacts,
+            We will analyze content authenticity, detect manipulation patterns,
             and publish an on-chain attestation in under a minute.
           </p>
         </div>

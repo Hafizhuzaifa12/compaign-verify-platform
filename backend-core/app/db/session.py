@@ -1,13 +1,15 @@
-"""SQLAlchemy engine + session factory — PostgreSQL only.
+"""SQLAlchemy engine + session factory — PostgreSQL.
 
 Synchronous SQLAlchemy 2.0. psycopg2 calls are short and the GIL releases on
 I/O so they're fine inside FastAPI route handlers. For background work (the
-AI orchestrator) we wrap DB calls in `asyncio.to_thread`.
+AI orchestrator) we wrap DB calls in ``asyncio.to_thread``.
 """
 
 from __future__ import annotations
 
 import logging
+from contextlib import contextmanager
+from typing import Generator
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
@@ -35,7 +37,7 @@ SessionLocal = sessionmaker(
 )
 
 
-def get_db() -> Session:
+def get_db() -> Generator[Session, None, None]:
     """FastAPI dependency: yields a session, closes it after the request."""
     db = SessionLocal()
     try:
@@ -44,6 +46,21 @@ def get_db() -> Session:
         db.close()
 
 
-def session_scope() -> Session:
-    """For non-request code paths (e.g. background tasks). Caller closes."""
-    return SessionLocal()
+@contextmanager
+def session_scope() -> Generator[Session, None, None]:
+    """Context manager for non-request code paths (background tasks, seeding).
+
+    Usage::
+
+        with session_scope() as db:
+            db.add(record)
+            db.commit()
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()

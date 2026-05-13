@@ -128,7 +128,7 @@ export default function CampaignDetailPage() {
           <div className="mb-6 flex items-center gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm">
             <Loader2 className="h-4 w-4 animate-spin text-primary" />
             <span>
-              Running multimodal verification…{" "}
+              Running content analysis…{" "}
               <span className="text-muted-foreground">
                 this usually takes a few seconds.
               </span>
@@ -159,7 +159,7 @@ export default function CampaignDetailPage() {
                 <div className="flex items-center justify-between">
                   <h2 className="font-semibold">AI signals</h2>
                   <Badge variant="primary">
-                    <Sparkles className="h-3 w-3" /> Multimodal
+                    <Sparkles className="h-3 w-3" /> ML + Rule Engine
                   </Badge>
                 </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -334,20 +334,22 @@ const STATUS_META = {
   pending: { label: "Pending", variant: "outline" as const, Icon: Clock },
 };
 
-/** Derives stable per-campaign sub-signals from the headline scores. */
+/** Derives display signals from the campaign's AI-assigned scores.
+ *
+ * The AI module returns a phishing *risk* score (0-1) which the backend
+ * converts to:  authenticity = (1 - risk) × 100,  deepfake = risk × 100.
+ * We reverse-engineer sensible sub-signals from these headline numbers.
+ */
 function deriveSignals(c: Campaign) {
-  const a = c.authenticity_score;
-  const d = c.deepfake_score;
-  // Deterministic jitter from campaign id
-  const seed = [...c.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-  const j = (n: number) => ((seed * (n + 1)) % 7) - 3;
+  const a = c.authenticity_score;  // 0-100 (higher = safer)
+  const d = c.deepfake_score;     // 0-100 (higher = riskier)
+
   return [
-    { label: "Facial consistency", value: clamp(a + j(0)), tone: "good" },
-    { label: "Lip-sync drift", value: clamp(d + j(1)), tone: "good", invert: true },
-    { label: "GAN artifact density", value: clamp(d + j(2)), tone: "good", invert: true },
-    { label: "Audio provenance", value: clamp(a + j(3)), tone: "good" },
-    { label: "Claim verifiability", value: clamp(a + j(4)), tone: "good" },
-    { label: "Synthetic disclosure", value: a > 90 ? 100 : clamp(a + j(5)), tone: "good" },
+    { label: "ML phishing probability",  value: clamp(d),                  invert: true  },
+    { label: "Rule-engine risk",          value: clamp(d * 0.8),            invert: true  },
+    { label: "Combined risk score",       value: clamp(d),                  invert: true  },
+    { label: "Content authenticity",      value: clamp(a),                  invert: false },
+    { label: "Confidence",                value: clamp(Math.abs(a - 50) * 2), invert: false },
   ];
 }
 

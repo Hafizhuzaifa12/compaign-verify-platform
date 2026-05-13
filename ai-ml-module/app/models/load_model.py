@@ -1,56 +1,80 @@
-"""Model loading.
-
-In production this restores a PyTorch checkpoint. For the scaffold we
-load a tiny scikit-learn-style serialised dict so the service runs in a
-slim container without GPU dependencies.
-"""
-
-from __future__ import annotations
-
-import json
+import joblib
 import logging
-from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
-
+import threading
+import os
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-
-@dataclass
-class Model:
-    name: str
-    version: str
-    weights: dict[str, float]
+_model = None
+_vectorizer = None
+_lock = threading.Lock()
+_loaded = False
 
 
-_FALLBACK_WEIGHTS = {
-    "length_norm": 0.18,
-    "red_flag_penalty": -7.5,
-    "vocab_coverage_bonus": 12.0,
-    "bias": 86.0,
-}
+def _validate_model(model, vectorizer):
+    """Verify model and vectorizer have the required sklearn interface."""
+    if not hasattr(model, 'predict'):
+        raise ValueError("Model missing predict method")
+    if not hasattr(model, 'predict_proba'):
+        raise ValueError("Model missing predict_proba method")
+    if not hasattr(model, 'classes_'):
+        raise ValueError("Model missing classes_ attribute")
+    if not hasattr(vectorizer, 'transform'):
+        raise ValueError("Vectorizer missing transform method")
 
 
-@lru_cache(maxsize=1)
-def load_model() -> Model:
-    path: Path = settings.model_path
-    if path.exists():
+def load_trained_artifacts():
+    """Thread-safe loading of model + vectorizer from disk."""
+    global _model, _vectorizer, _loaded
+    with _lock:
+        if _loaded:
+            return _model, _vectorizer
+
+        if not os.path.exists(settings.MODEL_PATH):
+            logger.warning("Model file not found: %s", settings.MODEL_PATH)
+            _model, _vectorizer, _loaded = None, None, False
+            return None, None
+
+        if not os.path.exists(settings.VECTORIZER_PATH):
+            logger.warning("Vectorizer file not found: %s", settings.VECTORIZER_PATH)
+            _model, _vectorizer, _loaded = None, None, False
+            return None, None
+
         try:
-            payload = json.loads(path.read_text(encoding="utf-8"))
-            return Model(
-                name=payload.get("name", "verit-authenticity"),
-                version=payload.get("version", "0.1.0"),
-                weights={**_FALLBACK_WEIGHTS, **payload.get("weights", {})},
-            )
-        except (OSError, json.JSONDecodeError) as exc:
-            logger.warning("Failed to load model from %s: %s — using fallback", path, exc)
-    else:
-        logger.info("No trained model at %s — using fallback weights", path)
+            model = joblib.load(settings.MODEL_PATH)
+            vectorizer = joblib.load(settings.VECTORIZER_PATH)
+            _validate_model(model, vectorizer)
+            _model = model
+            _vectorizer = vectorizer
+            _loaded = True
+            logger.info("Model loaded | classes=%s", list(model.classes_))
+            return model, vectorizer
+        except FileNotFoundError as e:
+            logger.error("File not found: %s", e)
+        except ValueError as e:
+            logger.error("Validation failed: %s", e)
+        except Exception as e:
+            logger.error("Load error: %s: %s", type(e).__name__, e)
 
-    return Model(
-        name="verit-authenticity-fallback",
-        version="0.1.0-fallback",
-        weights=dict(_FALLBACK_WEIGHTS),
-    )
+        _model, _vectorizer, _loaded = None, None, False
+        return None, None
+
+
+def get_model():
+    """Return (model, vectorizer), loading on first call if needed."""
+    if _loaded:
+        return _model, _vectorizer
+    return load_trained_artifacts()
+
+
+def reload_model():
+    """Force re-read of model artifacts from disk (thread-safe)."""
+    global _model, _vectorizer, _loaded
+    with _lock:
+        _model, _vectorizer, _loaded = None, None, False
+    return load_trained_artifacts()
+
+
+def is_model_loaded() -> bool:
+    return _loaded
