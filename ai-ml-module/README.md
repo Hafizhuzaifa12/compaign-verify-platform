@@ -70,33 +70,25 @@ This microservice is the **AI/ML brain** of the Campaign Verify Platform. It ana
 
 ## 🤖 Model Details
 
-### Algorithm: Soft-Voting Ensemble
+### Algorithm: Logistic Regression
 
-| Component | Algorithm | Role |
-|-----------|-----------|------|
-| **Estimator 1** | Logistic Regression | Fast, interpretable baseline with strong linear decision boundary |
-| **Estimator 2** | LinearSVC (Calibrated) | Margin-based classifier excelling in high-dimensional text spaces |
-| **Estimator 3** | Gradient Boosting (150 trees) | Captures non-linear patterns and complex feature interactions |
+The classification engine relies on a single, highly-optimized **Logistic Regression** model. 
 
 ### Why This Architecture?
 
-1. **Logistic Regression** — The gold standard for binary text classification. It's fast, interpretable, and provides well-calibrated probabilities. Ideal for production where latency matters.
-
-2. **LinearSVC** — Support Vector Machines with linear kernels are proven performers on TF-IDF features. Wrapped in `CalibratedClassifierCV` to produce probability estimates.
-
-3. **Gradient Boosting** — Adds ensemble depth by learning from residual errors. Captures feature interactions that linear models miss.
-
-4. **Soft Voting** — Averages probability predictions from all three models, producing more robust and stable classifications than any single model.
+1. **High Performance**: Logistic Regression is incredibly fast at inference, making it ideal for real-time validation in an API context.
+2. **Interpretability & Calibration**: The model returns calibrated probabilities rather than hard boundaries, which are then blended with the rules engine to compute a final `final_score`.
+3. **High-Dimensional Spaces**: When combined with a 50,000-feature TF-IDF vectorizer, Logistic Regression effortlessly discovers linear relationships identifying malicious intent.
 
 ### Training Details
 
 | Parameter | Value |
 |-----------|-------|
-| Dataset | `Phishing_Email.csv` — 18,650 real-world email samples |
+| Dataset | **120,788 samples** derived from Phishing emails, Fake news, Clickbait headlines, and the LIAR dataset |
 | Train/Test Split | 80/20 stratified |
-| Cross-Validation | 5-fold stratified (F1 scoring) |
-| Text Preprocessing | Lowercase → HTML strip → URL/IP removal → Stopword removal |
-| Feature Space | TF-IDF with 10,000 features, unigrams + bigrams |
+| Hold-Out Test Metric | **90% F1-Score** for Phishing Detection |
+| Text Preprocessing | Lowercase → Embedded Token Replacement (`specialtokenurl`, `specialtokenip`) → Stopword removal |
+| Feature Space | TF-IDF with **50,000** features, unigrams + bigrams |
 | Min Document Freq | 3 |
 | Max Document Freq | 95% |
 | Sublinear TF | Enabled |
@@ -125,9 +117,8 @@ If either score exceeds `0.80`, the maximum is used instead (high-confidence ove
 
 ### TF-IDF Vectorizer (ML Pipeline)
 - Converts raw email text into numerical feature vectors
-- 10,000 most informative uni/bigram features
-- Sublinear TF scaling reduces the impact of extremely frequent terms
-- NLTK stopword removal + HTML/URL stripping
+- **50,000** most informative uni/bigram features
+- URLs, emails, IPs, and phone numbers are mapped to unique tokens (`specialtokenurl`, `specialtokenemail`, etc.) instead of being erased, dramatically increasing malicious indicator retention.
 
 ### Rule-Based Engine (Structural Analysis)
 
@@ -181,10 +172,10 @@ Analyze a single piece of text content.
 ```json
 {
   "label": "High Risk",
-  "confidence": 0.8723,
-  "final_score": 0.8723,
-  "ml_phishing_score": 0.9145,
-  "rule_score": 0.85,
+  "confidence": 0.8957,
+  "final_score": 0.8957,
+  "ml_phishing_score": 0.8957,
+  "rule_score": 0.55,
   "indicators": [
     "suspicious_tld_x1",
     "phishing_domain_fragment_x1",
@@ -202,53 +193,11 @@ Analyze a single piece of text content.
 
 Analyze up to 50 texts in a single request.
 
-**Request:**
-```json
-{
-  "texts": [
-    "Meeting at 3pm tomorrow to discuss Q4 results.",
-    "URGENT: Verify your PayPal account at http://paypal-verify.tk/secure"
-  ]
-}
-```
-
-**Response:**
-```json
-{
-  "request_id": "...",
-  "count": 2,
-  "results": [
-    {
-      "label": "Safe",
-      "confidence": 0.0812,
-      "final_score": 0.0812,
-      "ml_phishing_score": 0.0523,
-      "rule_score": 0.0,
-      "indicators": [],
-      "model_active": true
-    },
-    {
-      "label": "High Risk",
-      "confidence": 0.9102,
-      "...": "..."
-    }
-  ]
-}
-```
-
 ---
 
 ### `POST /model/reload` — Hot Reload Model
 
 Reload model artifacts from disk without restarting the service.
-
-**Response:**
-```json
-{
-  "success": true,
-  "model_loaded": true
-}
-```
 
 ---
 
@@ -267,87 +216,28 @@ cd ai-ml-module
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Train the model (requires Phishing_Email.csv in root)
+# 3. Train the model (uses dataset from ai-ml-module/datasets of CD)
 python -m training.train
 
 # 4. Start the API server
 uvicorn app.api.endpoints:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MODEL_PATH` | `training/model.pkl` | Path to trained model |
-| `VECTORIZER_PATH` | `training/vectorizer.pkl` | Path to TF-IDF vectorizer |
-| `DATASET_PATH` | `Phishing_Email.csv` | Path to training dataset |
-| `CONFIDENCE_THRESHOLD` | `0.70` | Score threshold for "High Risk" |
-| `SUSPICIOUS_THRESHOLD` | `0.40` | Score threshold for "Suspicious" |
-| `ML_WEIGHT` | `0.45` | ML score weight in blending |
-| `RULE_WEIGHT` | `0.55` | Rule score weight in blending |
-| `MAX_BATCH_SIZE` | `50` | Maximum texts per batch request |
-| `MAX_INPUT_LENGTH` | `50000` | Maximum characters per text |
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `CORS_ORIGINS` | `*` | Allowed CORS origins |
-| `API_PORT` | `8001` | API server port |
-
 ---
 
 ## 🐳 Docker Deployment
 
 ```bash
-# Build the image (trains model during build)
-docker build -t campaign-ai-service .
-
-# Run the container
-docker run -p 8001:8001 campaign-ai-service
-
-# Test health
-curl http://localhost:8001/health
+# Run the container alongside other services via docker-compose
+docker-compose up -d --build
 ```
 
 The Dockerfile:
 1. Installs Python dependencies
 2. Downloads NLTK stopwords
-3. Runs `training.train` to produce `model.pkl` + `vectorizer.pkl`
+3. Copies over the `training/` directory containing the previously generated `model.pkl` + `vectorizer.pkl` (skips live training to save startup time).
 4. Starts uvicorn on port 8001
 5. Includes a health check endpoint
-
----
-
-## 🧪 Testing
-
-### Quick Smoke Test (curl)
-
-```bash
-# Safe content
-curl -X POST http://localhost:8001/predict \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hi team, the quarterly report is attached. Please review by Friday."}'
-
-# Phishing content
-curl -X POST http://localhost:8001/predict \
-  -H "Content-Type: application/json" \
-  -d '{"text": "URGENT: Your account will be suspended! Click http://secure-login.xyz/verify to confirm your password immediately."}'
-
-# Suspicious content
-curl -X POST http://localhost:8001/predict \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Important: Please update your billing information at your earliest convenience."}'
-```
-
-### Postman Collection
-
-Import the following tests into Postman:
-
-| # | Test Case | Expected Label |
-|---|-----------|---------------|
-| 1 | "Meeting tomorrow at 3pm in conference room B" | Safe |
-| 2 | "URGENT: Verify your account at http://banking-secure.xyz" | High Risk |
-| 3 | "Update your payment details to avoid service interruption" | Suspicious |
-| 4 | "" (empty string) | 422 Validation Error |
-| 5 | "!@#$%^&*()" (special chars only) | Safe |
-| 6 | "Click http://192.168.1.1/login to reset password immediately" | High Risk |
 
 ---
 
@@ -356,7 +246,7 @@ Import the following tests into Postman:
 ```
 ai-ml-module/
 ├── Dockerfile                  # Container build instructions
-├── Phishing_Email.csv          # Training dataset (18,650 samples)
+├── datasets of CD/             # 120k+ Training Datasets
 ├── README.md                   # This file
 ├── requirements.txt            # Python dependencies
 ├── app/
@@ -377,8 +267,9 @@ ai-ml-module/
     ├── __init__.py
     ├── train.py                # Full training pipeline
     ├── eda.ipynb               # Exploratory Data Analysis notebook
-    ├── model.pkl               # Trained ensemble model
-    └── vectorizer.pkl          # Fitted TF-IDF vectorizer
+    ├── final_test.py           # Verification script
+    ├── model.pkl               # Trained ensemble model (Logistic Regression)
+    └── vectorizer.pkl          # Fitted TF-IDF vectorizer (50k features)
 ```
 
 ---
