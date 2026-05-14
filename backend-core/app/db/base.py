@@ -58,3 +58,21 @@ def init_db() -> None:
     from app.db.session import engine
 
     Base.metadata.create_all(bind=engine)
+
+    # ── Migrate existing tables: add columns that may be missing ──────
+    _migrations = [
+        ("campaigns", "ai_indicators", "JSON"),
+        ("campaigns", "ml_score", "DOUBLE PRECISION"),
+        ("campaigns", "rule_score", "DOUBLE PRECISION"),
+    ]
+    with engine.connect() as conn:
+        for table, column, col_type in _migrations:
+            try:
+                conn.execute(
+                    __import__("sqlalchemy").text(
+                        f"ALTER TABLE {table} ADD COLUMN {column} {col_type}"
+                    )
+                )
+                conn.commit()
+            except Exception:
+                conn.rollback()
