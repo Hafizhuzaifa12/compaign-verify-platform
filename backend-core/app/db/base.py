@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, Text, func
+from sqlalchemy import DateTime, Float, Integer, String, Text, func, JSON
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -38,6 +38,9 @@ class CampaignRecord(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending", index=True)
     authenticity_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     deepfake_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    ai_indicators: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    ml_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    rule_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     blockchain_tx: Mapped[str | None] = mapped_column(String(80), nullable=True)
     blockchain_block: Mapped[int | None] = mapped_column(Integer, nullable=True)
     submitted_by: Mapped[str] = mapped_column(String(64), nullable=False, index=True)

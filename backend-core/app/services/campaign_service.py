@@ -83,8 +83,14 @@ class CampaignService:
         if not campaign:
             return
 
+        indicators = []
+        ml_score = None
+        rule_score = None
+
         try:
-            authenticity, deepfake, ai_status = await self._call_ai_service(campaign)
+            authenticity, deepfake, ai_status, indicators, ml_score, rule_score = (
+                await self._call_ai_service(campaign)
+            )
             ai_failed = False
         except Exception as exc:
             logger.warning(
@@ -109,6 +115,9 @@ class CampaignService:
                 rec.status = ai_status
                 rec.authenticity_score = authenticity
                 rec.deepfake_score = deepfake
+                rec.ai_indicators = indicators
+                rec.ml_score = ml_score
+                rec.rule_score = rule_score
                 rec.blockchain_tx = tx_hash
                 rec.blockchain_block = block
                 rec.verified_at = datetime.now(timezone.utc)
@@ -116,12 +125,13 @@ class CampaignService:
 
         await asyncio.to_thread(_persist)
         logger.info(
-            "Campaign %s scored: authenticity=%.1f deepfake=%.1f status=%s ai=%s",
+            "Campaign %s scored: authenticity=%.1f deepfake=%.1f status=%s ai=%s indicators=%s",
             campaign_id,
             authenticity,
             deepfake,
             ai_status,
             "fallback" if ai_failed else "real",
+            indicators,
         )
 
     def _fetch_for_analysis(self, campaign_id: str) -> Campaign | None:
@@ -129,7 +139,7 @@ class CampaignService:
 
     async def _call_ai_service(
         self, campaign: Campaign
-    ) -> tuple[float, float, str]:
+    ) -> tuple[float, float, str, list, float | None, float | None]:
         """Call the AI phishing-detection service and translate the result.
 
         The AI module expects ``{"text": "..."}`` and returns a phishing
@@ -140,11 +150,16 @@ class CampaignService:
         - deepfake_risk = final_score * 100
         - label mapping: Safe → verified, Suspicious → flagged,
           High Risk → rejected
+
+        Returns: (authenticity, deepfake, status, indicators, ml_score, rule_score)
         """
         url = f"{settings.AI_SERVICE_URL.rstrip('/')}/predict"
 
-        # Combine campaign fields into a single text block for analysis
+        # Combine ALL campaign fields into a single text block for analysis.
+        # Brand is included so the AI can detect impersonation (e.g. fake "PayPal").
         text_parts = [campaign.title]
+        if campaign.brand:
+            text_parts.append(campaign.brand)
         if campaign.description:
             text_parts.append(campaign.description)
         if campaign.media_url:
@@ -162,6 +177,11 @@ class CampaignService:
         authenticity = round((1.0 - final_score) * 100.0, 1)
         deepfake = round(final_score * 100.0, 1)
 
+        # Extract detailed AI breakdown
+        indicators = data.get("indicators", [])
+        ml_score = data.get("ml_phishing_score")
+        rule_score = data.get("rule_score")
+
         # Map AI label → platform status
         label = data.get("label", "Suspicious")
         status_map = {
@@ -174,10 +194,10 @@ class CampaignService:
         logger.info(
             "AI response for %s: label=%s final_score=%.4f → auth=%.1f df=%.1f status=%s | indicators=%s",
             campaign.id, label, final_score, authenticity, deepfake, status,
-            data.get("indicators", []),
+            indicators,
         )
 
-        return (authenticity, deepfake, status)
+        return (authenticity, deepfake, status, indicators, ml_score, rule_score)
 
     # ----- maintenance -----
 
@@ -196,6 +216,9 @@ class CampaignService:
                     status=c.status,
                     authenticity_score=c.authenticity_score,
                     deepfake_score=c.deepfake_score,
+                    ai_indicators=c.ai_indicators,
+                    ml_score=c.ml_score,
+                    rule_score=c.rule_score,
                     blockchain_tx=c.blockchain_tx,
                     blockchain_block=c.blockchain_block,
                     submitted_by=c.submitted_by,
@@ -219,6 +242,9 @@ class CampaignService:
             status=rec.status,  # type: ignore[arg-type]
             authenticity_score=rec.authenticity_score,
             deepfake_score=rec.deepfake_score,
+            ai_indicators=rec.ai_indicators,
+            ml_score=rec.ml_score,
+            rule_score=rec.rule_score,
             blockchain_tx=rec.blockchain_tx,
             blockchain_block=rec.blockchain_block,
             submitted_by=rec.submitted_by,

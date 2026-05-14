@@ -74,6 +74,9 @@ export interface Campaign {
   status: VerificationStatus;
   authenticity_score: number;
   deepfake_score: number;
+  ai_indicators?: string[];
+  ml_score?: number;
+  rule_score?: number;
   blockchain_tx?: string;
   blockchain_block?: number;
   submitted_by: string;

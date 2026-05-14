@@ -1,0 +1,171 @@
+{
+  "_instructions": "Copy each campaign's title, brand, category, description, and media_url into the Submit Campaign form. The 'expected_result' tells you what the AI should return.",
+
+  "campaigns": [
+
+    {
+      "id": "TEST-01",
+      "label": "SAFE — Legitimate Marketing Campaign",
+      "expected_result": "verified",
+      "title": "Spring Collection Launch 2026",
+      "brand": "Aurora Beauty",
+      "category": "marketing",
+      "description": "Discover our new spring line featuring fresh colors, sustainable fabrics, and designs that move with you. Shop the full collection at our official website. Free shipping on orders over $50.",
+      "media_url": "https://cdn.aurorabeauty.com/spring-2026-hero.mp4"
+    },
+
+    {
+      "id": "TEST-02",
+      "label": "SAFE — Political PSA",
+      "expected_result": "verified",
+      "title": "Vote 2026 — Know Your Rights",
+      "brand": "Nova Civic Foundation",
+      "category": "political",
+      "description": "A non-partisan civic engagement message encouraging citizens to register and vote in the upcoming election. Recorded by verified voice talent according to election commission standards. Visit novacivic.org for polling location details.",
+      "media_url": "https://novacivic.org/psa-vote-2026.mp4"
+    },
+
+    {
+      "id": "TEST-03",
+      "label": "SAFE — Public Service Announcement",
+      "expected_result": "verified",
+      "title": "Earthquake Preparedness Guide",
+      "brand": "National Disaster Management Authority",
+      "category": "public_service",
+      "description": "Learn how to prepare an emergency kit, secure heavy furniture, and follow evacuation protocols. This guide has been reviewed by disaster preparedness experts. Download the full checklist at ndma.gov.",
+      "media_url": "https://ndma.gov/earthquake-guide.pdf"
+    },
+
+    {
+      "id": "TEST-04",
+      "label": "SAFE — Tech Product Launch",
+      "expected_result": "verified",
+      "title": "CloudSync Pro — Enterprise File Management",
+      "brand": "TechVault Inc.",
+      "category": "marketing",
+      "description": "Introducing CloudSync Pro, our next-generation enterprise file synchronization platform. Features include end-to-end encryption, real-time collaboration, and SOC 2 compliance. Schedule a demo with our sales team at techvault.io.",
+      "media_url": "https://techvault.io/demo-video.mp4"
+    },
+
+    {
+      "id": "TEST-05",
+      "label": "SAFE — Non-Profit Fundraiser",
+      "expected_result": "verified",
+      "title": "Green Future Initiative — Plant a Million Trees",
+      "brand": "EcoPlanet Foundation",
+      "category": "public_service",
+      "description": "Join our mission to plant one million trees across three continents by 2027. Every dollar donated plants one tree. Progress is tracked via satellite imagery and published in our quarterly transparency report at ecoplanet.org/trees.",
+      "media_url": "https://ecoplanet.org/green-future-2026.mp4"
+    },
+
+    {
+      "id": "TEST-06",
+      "label": "HIGH RISK — Phishing (PayPal Impersonation)",
+      "expected_result": "rejected",
+      "title": "URGENT: Your PayPal Account Has Been Suspended",
+      "brand": "PayPal Security Team",
+      "category": "other",
+      "description": "Your account has been flagged for unusual activity. Click immediately to verify your identity at http://paypal-secure.xyz/verify-login or your account will be permanently closed within 24 hours. Enter your password and SSN to confirm ownership.",
+      "media_url": "http://paypal-secure.xyz/alert-banner.png"
+    },
+
+    {
+      "id": "TEST-07",
+      "label": "HIGH RISK — Credential Harvesting",
+      "expected_result": "rejected",
+      "title": "Security Alert — Immediate Password Reset Required",
+      "brand": "Ministry of Commerce",
+      "category": "political",
+      "description": "CRITICAL: Your government portal credentials have been compromised. Reset your password immediately at http://192.168.1.100/reset-portal. You must provide your Social Security Number and date of birth for verification. Failure to comply will lock your account permanently.",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-08",
+      "label": "HIGH RISK — Lottery/Advance-Fee Scam",
+      "expected_result": "rejected",
+      "title": "Congratulations! You Have Won $1,000,000!",
+      "brand": "International Lottery Commission",
+      "category": "other",
+      "description": "You have been randomly selected as the grand prize winner of our annual draw. To claim your guaranteed prize, send a processing fee of $50 via wire transfer to our claims department. This is a limited time offer — act now before the deadline expires! Contact us at winners@free-lottery.tk for details.",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-09",
+      "label": "HIGH RISK — Fake Investment/Crypto Scam",
+      "expected_result": "rejected",
+      "title": "Exclusive Investment Opportunity — 500% Returns Guaranteed",
+      "brand": "CryptoWealth Partners",
+      "category": "marketing",
+      "description": "Join thousands of investors earning guaranteed 500% returns monthly with our proprietary AI trading bot. Deposit a minimum of $200 in Bitcoin to get started. Wire transfer also accepted. This exclusive offer is only available for the next 48 hours. Don't miss your chance to become financially free! Visit http://crypto-wealth.click/invest now.",
+      "media_url": "http://crypto-wealth.click/promo.mp4"
+    },
+
+    {
+      "id": "TEST-10",
+      "label": "SUSPICIOUS — Borderline Deceptive Campaign",
+      "expected_result": "flagged",
+      "title": "Important Account Notification",
+      "brand": "Customer Service Center",
+      "category": "other",
+      "description": "Dear valued customer, we noticed unusual activity on your account. Please verify your login credentials at http://account-service.top/verify and update your password as soon as possible to avoid service disruption. Thank you for your cooperation.",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-11",
+      "label": "SUSPICIOUS — Aggressive Marketing with Urgency",
+      "expected_result": "flagged",
+      "title": "Flash Sale — 90% Off Everything — Ends Tonight!",
+      "brand": "DealZone Outlet",
+      "category": "marketing",
+      "description": "FINAL WARNING: This is your LAST CHANCE to save 90% on all items. Offer expires in 2 hours. Enter your credit card now to lock in prices before they go back up. Visit http://dealzone-outlet.xyz/mega-sale immediately. Limited stock — act now or regret forever!",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-12",
+      "label": "HIGH RISK — Data Harvesting Disguised as Survey",
+      "expected_result": "rejected",
+      "title": "Government Census — Complete Your Profile",
+      "brand": "National Statistics Bureau",
+      "category": "public_service",
+      "description": "MANDATORY: All citizens must complete the online verification form at http://census-portal.tk/verify-identity. Provide your full name, address, Social Security Number, bank account details, and mother's maiden name. Non-compliance will result in penalties. Submit within 24 hours.",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-13",
+      "label": "SAFE — Straightforward Event Promotion",
+      "expected_result": "verified",
+      "title": "TechConf 2026 — Annual Developer Conference",
+      "brand": "DevCommunity Global",
+      "category": "other",
+      "description": "Join 5,000 developers at the largest tech conference in South Asia. Keynotes from industry leaders, hands-on workshops, and networking sessions. Early bird tickets available at techconf2026.com. Event dates: September 15-17, 2026 at Lahore Convention Center.",
+      "media_url": "https://techconf2026.com/promo.mp4"
+    },
+
+    {
+      "id": "TEST-14",
+      "label": "HIGH RISK — Fake Bank Alert",
+      "expected_result": "rejected",
+      "title": "Your Bank Account Will Be Closed — Verify Now",
+      "brand": "National Bank Security",
+      "category": "other",
+      "description": "ALERT: Unauthorized login detected on your banking portal. Your account will be permanently suspended unless you verify your identity within 12 hours. Click here: http://national-bank-verify.xyz/secure-login. Enter your account number, PIN, and password to confirm. Do NOT share this link with anyone.",
+      "media_url": null
+    },
+
+    {
+      "id": "TEST-15",
+      "label": "SAFE — Restaurant Chain Promotion",
+      "expected_result": "verified",
+      "title": "Summer Menu Launch — Fresh Flavors Await",
+      "brand": "Harvest Kitchen",
+      "category": "marketing",
+      "description": "We're thrilled to unveil our summer 2026 menu featuring locally sourced ingredients and seasonal recipes. Try the new Mediterranean bowl, tropical smoothies, and grilled seafood platters. Available at all Harvest Kitchen locations starting June 1st. See the full menu at harvestkitchen.com.",
+      "media_url": "https://harvestkitchen.com/summer-menu-preview.jpg"
+    }
+  ]
+}

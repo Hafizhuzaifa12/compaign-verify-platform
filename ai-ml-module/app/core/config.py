@@ -14,8 +14,8 @@ class Settings:
     HIGH_CONFIDENCE_OVERRIDE = float(os.environ.get("HIGH_CONFIDENCE_OVERRIDE", "0.80"))
     SUSPICIOUS_THRESHOLD = float(os.environ.get("SUSPICIOUS_THRESHOLD", "0.40"))
 
-    ML_WEIGHT = float(os.environ.get("ML_WEIGHT", "0.45"))
-    RULE_WEIGHT = float(os.environ.get("RULE_WEIGHT", "0.55"))
+    ML_WEIGHT = float(os.environ.get("ML_WEIGHT", "0.55"))
+    RULE_WEIGHT = float(os.environ.get("RULE_WEIGHT", "0.45"))
 
     MAX_BATCH_SIZE = int(os.environ.get("MAX_BATCH_SIZE", "50"))
     MAX_INPUT_LENGTH = int(os.environ.get("MAX_INPUT_LENGTH", "50000"))

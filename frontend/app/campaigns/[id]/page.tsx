@@ -185,6 +185,20 @@ export default function CampaignDetailPage() {
                     );
                   })}
                 </div>
+                {campaign.ai_indicators && campaign.ai_indicators.length > 0 && (
+                  <div className="mt-5 border-t border-border/50 pt-4">
+                    <div className="text-xs font-medium uppercase tracking-wider text-muted-foreground mb-2">
+                      Detected indicators
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {campaign.ai_indicators.map((ind, i) => (
+                        <Badge key={i} variant="outline" className="text-xs font-mono">
+                          {ind}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -336,17 +350,20 @@ const STATUS_META = {
 
 /** Derives display signals from the campaign's AI-assigned scores.
  *
- * The AI module returns a phishing *risk* score (0-1) which the backend
- * converts to:  authenticity = (1 - risk) × 100,  deepfake = risk × 100.
- * We reverse-engineer sensible sub-signals from these headline numbers.
+ * Uses REAL ml_score and rule_score from the AI response when available.
+ * Falls back to derived values only if the detailed breakdown is missing.
  */
 function deriveSignals(c: Campaign) {
   const a = c.authenticity_score;  // 0-100 (higher = safer)
   const d = c.deepfake_score;     // 0-100 (higher = riskier)
 
+  // Use real AI breakdown if available (ml_score and rule_score are 0-1)
+  const mlRisk = c.ml_score != null ? c.ml_score * 100 : d;
+  const ruleRisk = c.rule_score != null ? c.rule_score * 100 : d * 0.8;
+
   return [
-    { label: "ML phishing probability",  value: clamp(d),                  invert: true  },
-    { label: "Rule-engine risk",          value: clamp(d * 0.8),            invert: true  },
+    { label: "ML phishing probability",  value: clamp(mlRisk),             invert: true  },
+    { label: "Rule-engine risk",          value: clamp(ruleRisk),           invert: true  },
     { label: "Combined risk score",       value: clamp(d),                  invert: true  },
     { label: "Content authenticity",      value: clamp(a),                  invert: false },
     { label: "Confidence",                value: clamp(Math.abs(a - 50) * 2), invert: false },

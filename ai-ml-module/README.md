@@ -59,7 +59,7 @@ This microservice is the **AI/ML brain** of the Campaign Verify Platform. It ana
 │                    │  │    Hybrid Scorer        │             │
 │                    │  │  ┌──────┐  ┌────────┐  │             │
 │                    │  │  │  ML  │  │ Rules  │  │             │
-│                    │  │  │ 0.45 │  │  0.55  │  │             │
+│                    │  │  │ 0.55 │  │  0.45  │  │             │
 │                    │  │  └──────┘  └────────┘  │             │
 │                    │  └────────────────────────┘             │
 │                    └─────────────────┘                       │
@@ -84,14 +84,17 @@ The classification engine relies on a single, highly-optimized **Logistic Regres
 
 | Parameter | Value |
 |-----------|-------|
-| Dataset | **120,788 samples** derived from Phishing emails, Fake news, Clickbait headlines, and the LIAR dataset |
+| Dataset | **~18,650 samples** from Phishing_Email.csv (domain-relevant phishing & safe emails only) |
 | Train/Test Split | 80/20 stratified |
-| Hold-Out Test Metric | **90% F1-Score** for Phishing Detection |
-| Text Preprocessing | Lowercase → Embedded Token Replacement (`specialtokenurl`, `specialtokenip`) → Stopword removal |
+| Cross-Validation | 5-fold Stratified CV (F1-weighted) |
+| Class Balancing | `class_weight='balanced'` (handles ~1.55:1 imbalance) |
+| Text Preprocessing | Lowercase → HTML strip → Token Replacement (`specialtokenurl`, `specialtokenip`, `specialtokenemail`, `specialtokenphone`) → Base64 removal → Stopword removal |
 | Feature Space | TF-IDF with **50,000** features, unigrams + bigrams |
 | Min Document Freq | 3 |
 | Max Document Freq | 95% |
 | Sublinear TF | Enabled |
+
+> **Note:** Previously included datasets (Fake news, Clickbait, LIAR) were removed as they contaminated the model with irrelevant decision boundaries. Only phishing-specific email data is used for training.
 
 ### Classification Thresholds
 
@@ -106,7 +109,7 @@ The classification engine relies on a single, highly-optimized **Logistic Regres
 The final score is a weighted combination of ML and rule-based analysis:
 
 ```
-final_score = 0.45 × ML_score + 0.55 × Rule_score
+final_score = 0.55 × ML_score + 0.45 × Rule_score
 ```
 
 If either score exceeds `0.80`, the maximum is used instead (high-confidence override).
@@ -246,7 +249,7 @@ The Dockerfile:
 ```
 ai-ml-module/
 ├── Dockerfile                  # Container build instructions
-├── datasets of CD/             # 120k+ Training Datasets
+├── Phishing_Email.csv          # Training dataset (~18,650 emails)
 ├── README.md                   # This file
 ├── requirements.txt            # Python dependencies
 ├── app/
@@ -257,7 +260,7 @@ ai-ml-module/
 │   ├── core/
 │   │   ├── __init__.py
 │   │   ├── config.py           # Environment-aware settings
-│   │   ├── features.py         # Rule-based phishing signal detection
+│   │   ├── features.py         # Rule-based + campaign spam/fraud detection
 │   │   └── tokenizer.py        # Text cleaning & signal extraction
 │   └── models/
 │       ├── __init__.py
@@ -265,10 +268,10 @@ ai-ml-module/
 │       └── predict.py          # Hybrid prediction pipeline
 └── training/
     ├── __init__.py
-    ├── train.py                # Full training pipeline
+    ├── train.py                # Full training pipeline (single clean dataset)
     ├── eda.ipynb               # Exploratory Data Analysis notebook
-    ├── final_test.py           # Verification script
-    ├── model.pkl               # Trained ensemble model (Logistic Regression)
+    ├── final_test.py           # Campaign verification test suite
+    ├── model.pkl               # Trained Logistic Regression model
     └── vectorizer.pkl          # Fitted TF-IDF vectorizer (50k features)
 ```
 

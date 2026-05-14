@@ -1,5 +1,10 @@
 import re
 
+# ══════════════════════════════════════════════════════════════════════
+# SIGNAL DICTIONARIES — Used by both phishing detection and campaign
+# spam/fraud intent verification.
+# ══════════════════════════════════════════════════════════════════════
+
 URGENCY_KEYWORDS = [
     "immediately", "urgent", "suspend", "suspended", "verify now",
     "act now", "action required", "urgent action", "expire", "expires",
@@ -30,6 +35,36 @@ PHISHING_DOMAIN_FRAGMENTS = [
     "signin", "logon", "authenticate",
 ]
 
+# Campaign-specific spam/fraud indicators — detect campaigns that abuse
+# the verification platform to legitimize fraudulent or spammy content.
+SPAM_INTENT_KEYWORDS = [
+    "guaranteed winner", "you have been selected", "congratulations you won",
+    "click below to claim", "claim your prize", "free money",
+    "wire transfer", "western union", "money gram", "bitcoin wallet",
+    "send money", "pay fee", "processing fee", "advance fee",
+    "nigerian prince", "inheritance", "beneficiary",
+    "make money fast", "work from home", "earn thousands",
+    "no experience needed", "100% free", "risk free", "double your",
+    "investment opportunity", "guaranteed returns", "mlm",
+    "multi level marketing", "pyramid scheme",
+]
+
+IMPERSONATION_KEYWORDS = [
+    "official notice from", "government notice", "tax refund",
+    "irs notice", "ministry of", "federal reserve",
+    "on behalf of the president", "united nations",
+    "world health organization", "your package is held",
+    "customs clearance", "delivery attempt failed",
+]
+
+DECEPTIVE_CAMPAIGN_PATTERNS = [
+    "verify your identity", "confirm your account",
+    "update your details", "click here to verify",
+    "enter your information", "provide your details",
+    "reset your password", "recover your account",
+    "unlock your account", "reactivate your account",
+]
+
 # Regex to extract the domain part from a URL
 _DOMAIN_RE = re.compile(
     r"https?://([^/:?#\s]+)", re.IGNORECASE
@@ -51,7 +86,12 @@ def _domain_has_suspicious_tld(domain: str) -> bool:
 
 
 def compute_rule_score(signals: dict) -> tuple:
-    """Compute a 0-1 phishing score from structural signals."""
+    """
+    Compute a 0-1 risk score from structural and semantic signals.
+    
+    Designed for Campaign Verification: detects phishing, spam, fraud,
+    and impersonation attempts in submitted campaign content.
+    """
     score = 0.0
     indicators = []
 
@@ -96,6 +136,24 @@ def compute_rule_score(signals: dict) -> tuple:
     if cred_hits > 0:
         score += min(cred_hits * 0.10, 0.25)
         indicators.append(f"credential_keywords_x{cred_hits}")
+
+    # ── Spam/fraud intent (campaign-specific) ─────────────────────────
+    spam_hits = sum(1 for kw in SPAM_INTENT_KEYWORDS if kw in text_lower)
+    if spam_hits > 0:
+        score += min(spam_hits * 0.10, 0.30)
+        indicators.append(f"spam_fraud_intent_x{spam_hits}")
+
+    # ── Impersonation signals (campaign-specific) ─────────────────────
+    impersonation_hits = sum(1 for kw in IMPERSONATION_KEYWORDS if kw in text_lower)
+    if impersonation_hits > 0:
+        score += min(impersonation_hits * 0.12, 0.25)
+        indicators.append(f"impersonation_x{impersonation_hits}")
+
+    # ── Deceptive campaign patterns (data harvesting campaigns) ───────
+    deceptive_hits = sum(1 for kw in DECEPTIVE_CAMPAIGN_PATTERNS if kw in text_lower)
+    if deceptive_hits > 0:
+        score += min(deceptive_hits * 0.08, 0.20)
+        indicators.append(f"deceptive_campaign_x{deceptive_hits}")
 
     # ── High URL count ───────────────────────────────────────────────
     if signals.get("url_count", 0) > 3:

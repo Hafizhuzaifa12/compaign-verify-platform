@@ -19,14 +19,27 @@ from app.models.load_model import load_trained_artifacts, is_model_loaded
 from app.models.predict import get_prediction
 
 # ── Test cases ───────────────────────────────────────────────────────
+# These simulate REAL campaign submissions to the platform (title + description).
 TEST_CASES = [
+    # --- Legitimate Campaigns ---
     {
-        "name": "1. Safe — Normal Business Email",
-        "text": "Hi team, the quarterly report is attached. Please review it before our Friday meeting. Thanks!",
+        "name": "1. Safe — Legitimate Marketing Campaign",
+        "text": "Spring Collection Launch | Discover our new spring line. Fresh colors, sustainable fabrics, and designs that move with you. Shop the collection at our official website.",
         "expected": "Safe",
     },
     {
-        "name": "2. High Risk — Classic Phishing",
+        "name": "2. Safe — Political Campaign (PSA)",
+        "text": "Ministry of Commerce - Official Statement on New Trade Regulations | The Ministry announces updated import/export policies effective July 2026. Read the full guidelines on commerce.gov.",
+        "expected": "Safe",
+    },
+    {
+        "name": "3. Safe — Normal Brand Promotion",
+        "text": "Aurora Tech — Product Demo Event | Join us for a live demonstration of our new AI assistant. Register on our website for free tickets. Event on June 15th at Convention Center.",
+        "expected": "Safe",
+    },
+    # --- Fraudulent Campaigns (should be flagged/rejected) ---
+    {
+        "name": "4. High Risk — Phishing Campaign Disguised as Brand",
         "text": (
             "URGENT: Your PayPal account has been suspended due to unusual activity. "
             "Click here immediately to verify your identity: http://paypal-secure.xyz/verify-login "
@@ -35,7 +48,25 @@ TEST_CASES = [
         "expected": "High Risk",
     },
     {
-        "name": "3. Suspicious — Credential Request with Link",
+        "name": "5. High Risk — Credential Harvesting Campaign",
+        "text": (
+            "Ministry of Commerce - urgent need your password | "
+            "SECURITY ALERT: Reset your password now at http://192.168.1.100/reset "
+            "Enter your SSN and credit card number to verify your identity immediately."
+        ),
+        "expected": "High Risk",
+    },
+    {
+        "name": "6. High Risk — Spam/Scam Campaign",
+        "text": (
+            "Congratulations You Won $1,000,000! | You have been selected as the lucky winner. "
+            "Send a processing fee of $50 via wire transfer to claim your prize. "
+            "This is a guaranteed winner offer. Act now before it expires!"
+        ),
+        "expected": "High Risk",
+    },
+    {
+        "name": "7. Suspicious — Deceptive Campaign with Credential Request",
         "text": (
             "Dear valued customer, we noticed unusual activity on your account. "
             "Please verify your login credentials at http://account-service.top/verify "
@@ -43,24 +74,16 @@ TEST_CASES = [
         ),
         "expected": "Suspicious",
     },
+    # --- Edge Cases ---
     {
-        "name": "4. Empty String (edge case)",
+        "name": "8. Empty String (edge case)",
         "text": "",
         "expected": "VALIDATION_ERROR",
     },
     {
-        "name": "5. Special Characters Only",
+        "name": "9. Special Characters Only",
         "text": "!@#$%^&*()_+-=[]{}|;':\",./<>?",
         "expected": "Safe",
-    },
-    {
-        "name": "6. High Risk — IP URL + Urgency",
-        "text": (
-            "SECURITY ALERT: Unauthorized login detected on your account. "
-            "Reset your password now at http://192.168.1.100/reset-password "
-            "Enter your SSN and credit card number to verify your identity immediately."
-        ),
-        "expected": "High Risk",
     },
 ]
 

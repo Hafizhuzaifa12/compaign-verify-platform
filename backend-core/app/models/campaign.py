@@ -31,6 +31,9 @@ class Campaign(BaseModel):
     status: VerificationStatus = "pending"
     authenticity_score: float = 0.0
     deepfake_score: float = 0.0
+    ai_indicators: list[str] | None = None
+    ml_score: float | None = None
+    rule_score: float | None = None
     blockchain_tx: str | None = None
     blockchain_block: int | None = None
     submitted_by: str
